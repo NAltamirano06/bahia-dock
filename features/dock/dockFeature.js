@@ -1,20 +1,57 @@
 /* features/dock/dockFeature.js
  *
- * Coordinador del módulo del dock. En la Fase 0 solo existe el esqueleto
- * para comprobar el ciclo de activación y desactivación. En la Fase 1
- * creará el espacio reservado, la vista y el modelo de aplicaciones, y
- * ocultará el dash nativo de la vista general.
+ * Coordinador del módulo del dock. Conecta las piezas:
+ *
+ *   AppModel    qué aplicaciones mostrar (favoritas)
+ *   DockView    la píldora con los iconos
+ *   DockLayout  posición en pantalla y espacio reservado
+ *   NativeDash  oculta y restaura el dash de la vista general
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 import {Feature} from '../../core/feature.js';
 
+import {AppModel} from './appModel.js';
+import {DockLayout} from './dockLayout.js';
+import {DockView} from './dockView.js';
+import {NativeDash} from './nativeDash.js';
+
 export class DockFeature extends Feature {
     static id = 'dock';
 
     _onEnable() {
+        this._model = new AppModel(this.lifecycle);
+        this._view = new DockView();
+        this._view.setApps(this._model.apps);
+        this._layout = new DockLayout(this._view, this.lifecycle);
+
+        this._model.connect('changed', () => {
+            this._view.setApps(this._model.apps);
+            this._layout.update();
+        });
+
+        this._nativeDash = new NativeDash(this.settings, this.logger);
+        this._nativeDash.hide();
+
+        this.logger.debug(`Dock con ${this._model.apps.length} favoritas`);
     }
 
     _onDisable() {
+        // Cada paso se protege por separado: si _onEnable falló a medias,
+        // algunas piezas no existen.
+        this._nativeDash?.restore();
+        this._nativeDash = null;
+
+        // La vista se destruye junto con el área del layout; si el layout
+        // no llegó a crearse, se destruye aquí.
+        if (this._layout)
+            this._layout.destroy();
+        else
+            this._view?.destroy();
+        this._layout = null;
+        this._view = null;
+
+        this._model?.destroy();
+        this._model = null;
     }
 }

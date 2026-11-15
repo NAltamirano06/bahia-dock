@@ -21,16 +21,25 @@ GNOME Shell no tiene una API estable para extensiones. Todo lo que se importa de
 | `ExtensionPreferences.fillPreferencesWindow()` (async) | `prefs.js` | Pública | 50.0 |
 | `GLib.timeout_add`, `GLib.source_remove` | `core/lifecycle.js` | Estable (GLib) | 50.0 |
 
-APIs internas previstas para el dock (Fase 1 y siguientes), a confirmar al implementarlas:
+APIs internas de GNOME Shell usadas por el dock:
+
+| API | Archivo | Riesgo al portar | Comprobado en |
+|---|---|---|---|
+| `Main.layoutManager.addChrome(actor, {affectsStruts, trackFullscreen})` / `removeChrome()` | `dockLayout.js` | Medio: el cálculo de struts está en `layout.js` (`_updateRegions`) | 50.0 |
+| `Main.layoutManager.primaryMonitor`, señal `monitors-changed` | `dockLayout.js` | Bajo | 50.0 |
+| `Main.overview.dash`, `isDummy`, `visible`, `showApps()`, `hide()` | `nativeDash.js`, `dockView.js`, `dockItem.js` | Medio: la vista general usa la altura del dash para su layout (`overviewControls.js`) | 50.0 |
+| `Main.notify(título, cuerpo)` | `nativeDash.js` | Bajo | 50.0 |
+| `AppFavorites.getAppFavorites()`: `getFavorites()`, señal `changed` | `appModel.js` | Bajo | 50.0 |
+| `EventEmitter` (`misc/signals.js`) | `appModel.js` | Bajo | 50.0 |
+| `Shell.AppSystem`, `Shell.App`: `activate()`, `open_new_window()`, `create_icon_texture()` | `appModel.js`, `dockItem.js` | Bajo (API GObject) | 50.0 |
+
+Previstas para fases siguientes:
 
 | API | Uso previsto | Referencia en Shell 50 |
 |---|---|---|
-| `Main.layoutManager.addChrome()` / `removeChrome()` | Espacio reservado | `ui/layout.js` |
-| `Main.overview.dash` | Ocultar el dash nativo | `ui/overview.js` |
-| `Main.notify()` | Aviso al ocultar el dash | `ui/main.js` |
-| `AppFavorites` | Favoritas | `ui/appFavorites.js` |
-| `AppMenu` | Menú contextual | `ui/appMenu.js` |
-| `DND.makeDraggable()` | Arrastrar iconos | `ui/dnd.js` |
+| `Shell.WindowTracker`, `Shell.App` `windows-changed` | Indicadores (Fase 2) | — |
+| `AppMenu` | Menú contextual (Fase 3) | `ui/appMenu.js` |
+| `DND.makeDraggable()` | Arrastrar iconos (Fase 3) | `ui/dnd.js` |
 
 ## Al portar a una versión nueva de GNOME Shell
 

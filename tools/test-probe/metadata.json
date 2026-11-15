@@ -1,0 +1,8 @@
+{
+  "uuid": "bahia-dock-probe@test",
+  "name": "Bahía Dock Probe",
+  "description": "Solo para tools/headless-test.sh. No instalar.",
+  "shell-version": [
+    "50"
+  ]
+}

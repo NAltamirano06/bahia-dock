@@ -28,13 +28,22 @@ Compila el esquema y crea el enlace:
 ## Prueba automática (sin pantalla)
 
 ```bash
-tools/headless-test.sh        # 5 ciclos de activar y desactivar
-tools/headless-test.sh 20     # 20 ciclos
+tools/headless-test.sh                     # 5 ciclos de activar y desactivar
+tools/headless-test.sh 20                  # 20 ciclos
+tools/headless-test.sh 5 ~/capturas-dock   # además guarda capturas y registro
 ```
 
-Arranca un GNOME Shell sin pantalla en un entorno aislado, con sus propios ajustes y bus D-Bus, así que no toca la sesión real. No necesita `mutter-devkit`. Termina con `OK` y código 0 si la extensión queda activa y no registra errores. Pásala antes de cada commit.
+Arranca un GNOME Shell sin pantalla (monitor virtual de 1280x800) en un entorno aislado, con sus propios ajustes y bus D-Bus, así que no toca la sesión real. Copia tus favoritas en modo lectura para que el dock muestre lo mismo. No necesita `mutter-devkit`.
 
-No sustituye a la sesión anidada: no se puede ver el dock ni interactuar con él.
+Después de los ciclos activa la extensión auxiliar `tools/test-probe/` (no se empaqueta), que:
+- mide el dock, el área de trabajo y el dash nativo;
+- abre el Editor de texto, lo maximiza y comprueba que empieza a la derecha del dock;
+- simula un clic en un icono y comprueba que la aplicación se abre;
+- guarda capturas del escritorio, la ventana maximizada y la vista general.
+
+Termina con `OK` y código 0 si todo es correcto. Pásala antes de cada commit.
+
+No sustituye a la sesión anidada: no permite usar el dock a mano ni ver las animaciones.
 
 ## Sesión anidada
 

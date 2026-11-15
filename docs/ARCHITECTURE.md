@@ -78,18 +78,33 @@ Todas las clases CSS llevan prefijo para no chocar con el tema:
 | Dock | `features/dock/` | 1 a 5 |
 | Ventanas | `features/windows/` | 6 |
 
-Estructura prevista del dock:
+Estructura del dock (✓ = existe):
 
 ```text
 features/dock/
-├── dockFeature.js   Coordina el módulo
-├── appModel.js      Favoritas + abiertas, sin interfaz
-├── dockLayout.js    Monitor, posición y espacio reservado
-├── dockView.js      Contenedor visual
-├── dockItem.js      Icono, indicador y clics
-├── dockMenu.js      Menú contextual
-└── magnifier.js     Magnificación (Fase 4)
+├── dockFeature.js   ✓ Coordina el módulo
+├── appModel.js      ✓ Favoritas (Fase 1) + abiertas (Fase 2), sin interfaz
+├── dockLayout.js    ✓ Monitor, posición y espacio reservado
+├── dockView.js      ✓ Píldora con los iconos y botón de aplicaciones
+├── dockItem.js      ✓ Icono y clics; indicador en la Fase 2
+├── nativeDash.js    ✓ Oculta y restaura el dash de la vista general
+├── dockMenu.js        Menú contextual (Fase 3)
+└── magnifier.js       Magnificación (Fase 4)
 ```
+
+### Cómo se reserva el espacio
+
+```text
+borde izquierdo
+│◄──────── área (88 px a 1x) ────────►│
+│ padding │   píldora (DockView)   │ padding │  ventanas maximizadas →
+│  8 px   │                        │  6 px   │
+```
+
+- **Área** (`DockLayout.area`): `St.Widget` transparente, altura completa del monitor, registrado con `Main.layoutManager.addChrome(area, {affectsStruts: true, trackFullscreen: true})`. Como toca el borde izquierdo de arriba abajo, GNOME Shell crea un strut `LEFT` del ancho del área y lo resta del área de trabajo.
+- **Píldora** (`DockView`): hija del área, centrada en vertical. Puede cambiar de aspecto sin mover las ventanas, siempre que no cambie el ancho del área.
+- **Pantalla completa:** `trackFullscreen` oculta el área cuando hay una ventana a pantalla completa en el monitor.
+- **Varios monitores:** en la Fase 1 el dock solo está en el monitor principal. Se recoloca con `monitors-changed`.
 
 ## Decisiones de diseño del dock
 

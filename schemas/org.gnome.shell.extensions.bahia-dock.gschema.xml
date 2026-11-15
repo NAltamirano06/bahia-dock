@@ -10,6 +10,13 @@
       <description>Muestra el dock vertical en el borde izquierdo del escritorio.</description>
     </key>
 
+    <!-- Estado interno -->
+    <key name="native-dash-notice-shown" type="b">
+      <default>false</default>
+      <summary>Aviso del dash nativo mostrado</summary>
+      <description>Se activa tras avisar por primera vez de que el dash de la vista general se ha ocultado.</description>
+    </key>
+
     <!-- Desarrollo -->
     <key name="debug-logging" type="b">
       <default>false</default>
