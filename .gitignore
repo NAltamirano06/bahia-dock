@@ -11,3 +11,6 @@ dist/
 *.swp
 *~
 .directory
+
+# Memoria de Claude Code (enlace local, no se publica)
+.memoria
