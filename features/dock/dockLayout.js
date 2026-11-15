@@ -76,10 +76,13 @@ export class DockLayout {
         const count = Math.max(1, this._view.itemCount);
         // Espacio de cada botón además del icono: padding (12) y separación (4)
         // definidos en stylesheet.css (en píxeles lógicos), más el
-        // margen superior e inferior de la píldora.
+        // margen superior e inferior de la píldora y la franja de cada
+        // separador (1px + 12px de margen).
         const perItemExtra = 16;
         const verticalMargins = 64;
-        const available = monitor.height / scale - verticalMargins;
+        const perSeparator = 13;
+        const available = monitor.height / scale - verticalMargins -
+            perSeparator * this._view.separatorCount;
         const fit = available / count - perItemExtra;
         this._view.setIconSize(Math.min(MAX_ICON_SIZE, fit));
     }

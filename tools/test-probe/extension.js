@@ -7,6 +7,9 @@
  *   2. Maximiza las ventanas abiertas y registra su posición.
  *   3. Guarda capturas del escritorio y de la vista general en
  *      $XDG_RUNTIME_DIR/probe-*.png.
+ *   4. Abre una app desde el dock y comprueba sus indicadores y el
+ *      foco; la quita de favoritas (solo en el entorno aislado de la
+ *      prueba) para verla en la sección de abiertas, y la cierra.
  *
  * Todas las líneas que escribe empiezan por "PROBE ".
  *
@@ -18,6 +21,7 @@ import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 Gio._promisify(Shell.Screenshot.prototype, 'screenshot');
@@ -77,8 +81,8 @@ export default class ProbeExtension extends Extension {
         console.log('PROBE fin');
     }
 
-    /** Simula un clic en el primer icono cuya app no esté abierta. */
-    async _clickFirstStoppedApp() {
+    /** Iconos del dock (DockItem), en orden. */
+    _dockItems() {
         const area = Main.layoutManager.uiGroup.get_children()
             .find(a => a.name === 'bahiaDockArea');
         const items = [];
@@ -92,19 +96,66 @@ export default class ProbeExtension extends Extension {
         };
         if (area)
             collect(area);
+        return items;
+    }
 
-        const item = items.find(i => i.app.state === Shell.AppState.STOPPED &&
+    /**
+     * Registra el estado del icono de una app:
+     * sección, puntos y foco, o "ausente" si no está en el dock.
+     */
+    _reportItem(label, id) {
+        const item = this._dockItems().find(i => i.app.get_id() === id);
+        if (!item) {
+            console.log(`PROBE item[${label}] ${id} ausente`);
+            return;
+        }
+        console.log(`PROBE item[${label}] ${id} section=${item.get_parent().name} ` +
+            `dots=${item.dotCount} focused=${item.focused}`);
+    }
+
+    /** Espera hasta que cond() sea cierta, como mucho timeoutMs. */
+    async _waitFor(cond, timeoutMs = 10000) {
+        for (let t = 0; t < timeoutMs && !cond(); t += 250)
+            await wait(250);
+    }
+
+    /**
+     * Simula un clic en el primer icono cuya app no esté abierta y
+     * recorre los estados de la Fase 2.
+     */
+    async _clickFirstStoppedApp() {
+        const item = this._dockItems().find(i => i.app.state === Shell.AppState.STOPPED &&
             i.app.get_id() !== 'org.mozilla.firefox.desktop');
         if (!item) {
             console.log('PROBE click sin apps cerradas para probar');
             return;
         }
 
-        const id = item.app.get_id();
+        const app = item.app;
+        const id = app.get_id();
         item.emit('clicked', 1);
-        for (let i = 0; i < 20 && item.app.get_n_windows() === 0; i++)
-            await wait(500);
-        console.log(`PROBE click ${id} state=${item.app.state} windows=${item.app.get_n_windows()}`);
+        await this._waitFor(() => app.get_n_windows() > 0);
+        // Margen para que llegue el foco.
+        await this._waitFor(() => Shell.WindowTracker.get_default().focus_app === app, 3000);
+        console.log(`PROBE click ${id} state=${app.state} windows=${app.get_n_windows()}`);
+        this._reportItem('abierta', id);
+        await this._screenshot('abierta');
+
+        // Fuera de favoritas debe pasar a la sección de abiertas.
+        const favorites = AppFavorites.getAppFavorites();
+        favorites.removeFavorite(id);
+        await wait(500);
+        this._reportItem('no-favorita', id);
+        await this._screenshot('no-favorita');
+
+        // Al cerrarla debe desaparecer del dock.
+        for (const win of app.get_windows())
+            win.delete(global.get_current_time());
+        await this._waitFor(() => app.state === Shell.AppState.STOPPED);
+        await wait(500);
+        this._reportItem('cerrada', id);
+
+        favorites.addFavorite(id);
     }
 
     _report(label) {

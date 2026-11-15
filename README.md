@@ -2,7 +2,7 @@
 
 Dock vertical para GNOME Shell, situado en el borde izquierdo del escritorio. Muestra las aplicaciones favoritas y las abiertas, y reserva su propio espacio para que las ventanas maximizadas no queden debajo.
 
-> **Estado:** en desarrollo, Fase 1. El dock muestra las favoritas, abre aplicaciones y reserva su espacio. Los indicadores de apps abiertas llegan en la Fase 2.
+> **Estado:** en desarrollo, Fase 2. El dock muestra las favoritas y las apps abiertas, con indicadores de ventanas y de foco, y reserva su espacio. El menú contextual, los tooltips y el arrastre llegan en la Fase 3.
 
 ## Compatibilidad
 

@@ -9,7 +9,8 @@
 #      tools/test-probe, que maximiza la ventana, mide el dock y el área
 #      de trabajo, y hace capturas de pantalla.
 #   3. Revisa el registro y comprueba que la ventana maximizada empieza
-#      a la derecha del dock.
+#      a la derecha del dock, y que los indicadores, el foco y la
+#      sección de apps abiertas responden al abrir y cerrar una app.
 #
 # No toca la sesión real ni sus ajustes y no necesita mutter-devkit.
 #
@@ -67,7 +68,7 @@ if command -v gnome-text-editor >/dev/null; then
 fi
 
 gnome-extensions enable '$PROBE_UUID'
-for _ in \$(seq 1 40); do
+for _ in \$(seq 1 70); do
     grep -q 'PROBE fin\|PROBE ERROR' '$LOG' && break
     sleep 1
 done
@@ -129,6 +130,18 @@ if grep -q 'PROBE click .* windows=0' "$LOG"; then
     fail "el clic en un icono no abrió la aplicación"
 fi
 
+# Comprobaciones de la Fase 2 (solo si la sonda pudo abrir una app)
+if grep -q 'PROBE click .* windows=[1-9]' "$LOG"; then
+    grep -qP 'PROBE item\[abierta\] \S+ section=bahiaDockFavorites dots=[1-9]' "$LOG" ||
+        fail "la app abierta no muestra indicador de ventanas"
+    grep -qP 'PROBE item\[abierta\] .* focused=true' "$LOG" ||
+        fail "la app abierta no aparece con el foco"
+    grep -qP 'PROBE item\[no-favorita\] \S+ section=bahiaDockRunning dots=[1-9]' "$LOG" ||
+        fail "la app abierta no favorita no aparece en la sección de abiertas"
+    grep -qP 'PROBE item\[cerrada\] \S+ ausente' "$LOG" ||
+        fail "la app cerrada sigue en el dock"
+fi
+
 if [[ -n "$SHOTS_DIR" ]]; then
     mkdir -p "$SHOTS_DIR"
     cp "$WORK"/run/probe-*.png "$SHOTS_DIR"/ 2>/dev/null || true
@@ -136,5 +149,5 @@ if [[ -n "$SHOTS_DIR" ]]; then
     echo "Capturas y registro en $SHOTS_DIR"
 fi
 
-[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores, espacio reservado correcto"
+[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores, espacio reservado e indicadores correctos"
 exit $FAIL

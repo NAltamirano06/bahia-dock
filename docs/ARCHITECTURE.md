@@ -83,10 +83,10 @@ Estructura del dock (✓ = existe):
 ```text
 features/dock/
 ├── dockFeature.js   ✓ Coordina el módulo
-├── appModel.js      ✓ Favoritas (Fase 1) + abiertas (Fase 2), sin interfaz
+├── appModel.js      ✓ Favoritas, abiertas no favoritas y foco, sin interfaz
 ├── dockLayout.js    ✓ Monitor, posición y espacio reservado
-├── dockView.js      ✓ Píldora con los iconos y botón de aplicaciones
-├── dockItem.js      ✓ Icono y clics; indicador en la Fase 2
+├── dockView.js      ✓ Píldora: favoritas, abiertas y botón de aplicaciones
+├── dockItem.js      ✓ Icono, indicadores de ventanas, foco y clics
 ├── nativeDash.js    ✓ Oculta y restaura el dash de la vista general
 ├── dockMenu.js        Menú contextual (Fase 3)
 └── magnifier.js       Magnificación (Fase 4)

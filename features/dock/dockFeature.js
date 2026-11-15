@@ -2,7 +2,8 @@
  *
  * Coordinador del módulo del dock. Conecta las piezas:
  *
- *   AppModel    qué aplicaciones mostrar (favoritas)
+ *   AppModel    qué aplicaciones mostrar (favoritas y abiertas) y cuál
+ *               tiene el foco
  *   DockView    la píldora con los iconos
  *   DockLayout  posición en pantalla y espacio reservado
  *   NativeDash  oculta y restaura el dash de la vista general
@@ -22,18 +23,23 @@ export class DockFeature extends Feature {
     _onEnable() {
         this._model = new AppModel(this.lifecycle);
         this._view = new DockView();
-        this._view.setApps(this._model.apps);
+        this._view.setApps(this._model.favorites, this._model.running);
+        this._view.setFocusApp(this._model.focusApp);
         this._layout = new DockLayout(this._view, this.lifecycle);
 
         this._model.connect('changed', () => {
-            this._view.setApps(this._model.apps);
+            this._view.setApps(this._model.favorites, this._model.running);
             this._layout.update();
+        });
+        this._model.connect('focus-changed', () => {
+            this._view.setFocusApp(this._model.focusApp);
         });
 
         this._nativeDash = new NativeDash(this.settings, this.logger);
         this._nativeDash.hide();
 
-        this.logger.debug(`Dock con ${this._model.apps.length} favoritas`);
+        this.logger.debug(`Dock con ${this._model.favorites.length} favoritas y ` +
+            `${this._model.running.length} abiertas no favoritas`);
     }
 
     _onDisable() {

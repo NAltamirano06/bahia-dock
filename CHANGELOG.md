@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.3.0 — Fase 2: apps abiertas
+
+- Indicadores de ventanas: un punto por ventana abierta (hasta tres) a la izquierda de cada icono, sin cambiar el ancho del dock.
+- La app con el foco se resalta con un fondo suave y puntos más brillantes.
+- Las apps abiertas que no son favoritas aparecen en su propia sección, en el orden en que se abrieron, y desaparecen al cerrarlas.
+- Un icono pasa de una sección a otra sin recrearse al añadir o quitar la app de favoritas.
+- Prueba automática ampliada: abre una app, comprueba su indicador y su foco, la quita de favoritas (solo en el entorno aislado) y la cierra.
+
 ## 0.2.0 — Fase 1: dock estático
 
 - Dock flotante a la izquierda, centrado en vertical, con las aplicaciones favoritas de GNOME.

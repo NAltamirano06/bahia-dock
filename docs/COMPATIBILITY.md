@@ -32,12 +32,15 @@ APIs internas de GNOME Shell usadas por el dock:
 | `AppFavorites.getAppFavorites()`: `getFavorites()`, señal `changed` | `appModel.js` | Bajo | 50.0 |
 | `EventEmitter` (`misc/signals.js`) | `appModel.js` | Bajo | 50.0 |
 | `Shell.AppSystem`, `Shell.App`: `activate()`, `open_new_window()`, `create_icon_texture()` | `appModel.js`, `dockItem.js` | Bajo (API GObject) | 50.0 |
+| `Shell.AppSystem.get_running()`, señal `app-state-changed` | `appModel.js` | Bajo (API GObject) | 50.0 |
+| `Shell.App`: `get_windows()`, señal `windows-changed`, `notify::state` | `dockItem.js` | Bajo (API GObject) | 50.0 |
+| `Shell.WindowTracker.focus_app`, `notify::focus-app` | `appModel.js` | Bajo (API GObject) | 50.0 |
+| `connectObject()` (`misc/signalTracker.js`) | `dockItem.js` | Bajo | 50.0 |
 
 Previstas para fases siguientes:
 
 | API | Uso previsto | Referencia en Shell 50 |
 |---|---|---|
-| `Shell.WindowTracker`, `Shell.App` `windows-changed` | Indicadores (Fase 2) | — |
 | `AppMenu` | Menú contextual (Fase 3) | `ui/appMenu.js` |
 | `DND.makeDraggable()` | Arrastrar iconos (Fase 3) | `ui/dnd.js` |
 

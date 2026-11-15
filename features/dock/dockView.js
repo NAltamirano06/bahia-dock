@@ -1,8 +1,12 @@
 /* features/dock/dockView.js
  *
- * Contenedor visual del dock: la "píldora" vertical con los iconos y,
- * al final, el botón que abre la cuadrícula de aplicaciones (sustituye
- * al que había en el dash nativo).
+ * Contenedor visual del dock: la "píldora" vertical con, de arriba
+ * abajo:
+ *
+ *   favoritas
+ *   separador + aplicaciones abiertas no favoritas (si hay alguna)
+ *   separador + botón de la cuadrícula de aplicaciones (sustituye al
+ *   que había en el dash nativo)
  *
  * Solo refleja el estado de AppModel; no decide qué aplicaciones hay.
  *
@@ -32,12 +36,24 @@ class BahiaDockView extends St.BoxLayout {
 
         this._iconSize = MAX_ICON_SIZE;
         this._items = new Map();
+        this._focusApp = null;
 
-        this._appsBox = new St.BoxLayout({
+        this._favoritesBox = new St.BoxLayout({
+            name: 'bahiaDockFavorites',
             style_class: 'bahia-dock-apps',
             orientation: Clutter.Orientation.VERTICAL,
         });
-        this.add_child(this._appsBox);
+        this.add_child(this._favoritesBox);
+
+        this._runningSeparator = new St.Widget({style_class: 'bahia-dock-separator'});
+        this.add_child(this._runningSeparator);
+
+        this._runningBox = new St.BoxLayout({
+            name: 'bahiaDockRunning',
+            style_class: 'bahia-dock-apps',
+            orientation: Clutter.Orientation.VERTICAL,
+        });
+        this.add_child(this._runningBox);
 
         this._separator = new St.Widget({style_class: 'bahia-dock-separator'});
         this.add_child(this._separator);
@@ -74,18 +90,27 @@ class BahiaDockView extends St.BoxLayout {
         return this._items.size + 1;
     }
 
+    /** Separadores visibles (cada uno ocupa una franja fija de altura). */
+    get separatorCount() {
+        return [this._runningSeparator, this._separator]
+            .filter(s => s.visible).length;
+    }
+
     get iconSize() {
         return this._iconSize;
     }
 
     /**
-     * Sincroniza los iconos con la lista de aplicaciones, reutilizando
-     * los que ya existen para no recrear texturas sin necesidad.
+     * Sincroniza los iconos con las listas de aplicaciones, reutilizando
+     * los que ya existen para no recrear texturas sin necesidad. Un icono
+     * puede pasar de una sección a otra (por ejemplo, al quitar de
+     * favoritas una app abierta) sin recrearse.
      *
-     * @param {Shell.App[]} apps - aplicaciones en orden
+     * @param {Shell.App[]} favorites - favoritas, en orden
+     * @param {Shell.App[]} running - abiertas no favoritas, en orden
      */
-    setApps(apps) {
-        const wanted = new Set(apps.map(app => app.get_id()));
+    setApps(favorites, running) {
+        const wanted = new Set([...favorites, ...running].map(app => app.get_id()));
 
         for (const [id, item] of this._items) {
             if (!wanted.has(id)) {
@@ -94,19 +119,47 @@ class BahiaDockView extends St.BoxLayout {
             }
         }
 
+        this._syncBox(this._favoritesBox, favorites);
+        this._syncBox(this._runningBox, running);
+
+        this._runningSeparator.visible = favorites.length > 0 && running.length > 0;
+        this._runningBox.visible = running.length > 0;
+        this._separator.visible = this._items.size > 0;
+        this._updateFocus();
+    }
+
+    /**
+     * @param {Shell.App|null} app - aplicación con el foco
+     */
+    setFocusApp(app) {
+        this._focusApp = app;
+        this._updateFocus();
+    }
+
+    _updateFocus() {
+        for (const item of this._items.values())
+            item.setFocused(item.app === this._focusApp);
+    }
+
+    /**
+     * @param {St.BoxLayout} box - sección que se sincroniza
+     * @param {Shell.App[]} apps - aplicaciones que debe contener, en orden
+     */
+    _syncBox(box, apps) {
         apps.forEach((app, index) => {
             const id = app.get_id();
             let item = this._items.get(id);
             if (!item) {
                 item = new DockItem(app, this._iconSize);
                 this._items.set(id, item);
-                this._appsBox.insert_child_at_index(item, index);
-            } else if (this._appsBox.get_child_at_index(index) !== item) {
-                this._appsBox.set_child_at_index(item, index);
+                box.insert_child_at_index(item, index);
+            } else if (item.get_parent() !== box) {
+                item.get_parent().remove_child(item);
+                box.insert_child_at_index(item, index);
+            } else if (box.get_child_at_index(index) !== item) {
+                box.set_child_at_index(item, index);
             }
         });
-
-        this._separator.visible = this._items.size > 0;
     }
 
     /**
