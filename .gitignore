@@ -1,0 +1,13 @@
+# Esquema compilado: se genera con tools/install-dev.sh
+schemas/gschemas.compiled
+
+# Paquetes generados con tools/pack.sh
+dist/
+*.shell-extension.zip
+
+# Editores y sistema
+.vscode/
+.idea/
+*.swp
+*~
+.directory

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.bahia-dock"
+          path="/org/gnome/shell/extensions/bahia-dock/">
+
+    <!-- Interruptores de módulos: "<id>-enabled" -->
+    <key name="dock-enabled" type="b">
+      <default>true</default>
+      <summary>Activar el dock</summary>
+      <description>Muestra el dock vertical en el borde izquierdo del escritorio.</description>
+    </key>
+
+    <!-- Desarrollo -->
+    <key name="debug-logging" type="b">
+      <default>false</default>
+      <summary>Registro de depuración</summary>
+      <description>Escribe mensajes de depuración en el registro del sistema (journalctl).</description>
+    </key>
+
+  </schema>
+</schemalist>

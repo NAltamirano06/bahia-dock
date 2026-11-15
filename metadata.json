@@ -1,0 +1,10 @@
+{
+  "uuid": "bahia-dock@bahia-dock.github.io",
+  "name": "Bahía Dock",
+  "description": "Dock vertical para GNOME Shell, con favoritas y aplicaciones abiertas, situado en el borde izquierdo del escritorio.",
+  "version-name": "0.1.0",
+  "shell-version": [
+    "50"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.bahia-dock"
+}

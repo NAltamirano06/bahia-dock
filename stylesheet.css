@@ -1,0 +1,11 @@
+/* stylesheet.css
+ *
+ * Estilos de Bahía Dock. GNOME Shell carga este archivo al activar la
+ * extensión. Todas las clases llevan el prefijo "bahia-" para no chocar
+ * con el tema de Shell ni con otras extensiones:
+ *
+ *   bahia-dock-*    módulo del dock
+ *   bahia-window-*  módulo futuro de ventanas
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
