@@ -45,6 +45,10 @@ APIs internas de GNOME Shell usadas por el dock:
 | `AppFavorites`: `moveFavoriteToPos()`, `addFavoriteAtPos()`, `isFavorite()` | `dockView.js` | Bajo | 50.0 |
 | `Main.layoutManager.addTopChrome()`; clase de tema `dash-label` | `dockLabel.js` | Bajo; en 50 `addChrome` solo admite `trackFullscreen` y `affectsStruts` | 50.0 |
 | `Meta.Window`: `minimize()`, `unminimize()`, `can_minimize()`, `located_on_workspace()`; `Main.activateWindow()` | `dockItem.js` | Bajo | 50.0 |
+| `Main.getStyleVariant()`, `St.Settings` `notify::color-scheme` | `dockView.js` | Medio: `getStyleVariant` es interna de `ui/main.js` | 50.0 |
+| `St.Adjustment` con `actor` y `ease()` (añadido por `ui/environment.js`) | `magnifier.js` | Bajo | 50.0 |
+| `Main.layoutManager.removeChrome()` + `addChrome()` para cambiar `affectsStruts` | `dockLayout.js` | Medio: los struts se calculan con la posición transformada del actor (`layout.js` `_updateRegions`) | 50.0 |
+| `global.display` `window-created`, `restacked`; `Meta.Window` `position-changed`, `size-changed`, `workspace-changed`, `unmanaged`, `showing_on_its_workspace()`, `get_frame_rect()` | `dockVisibility.js` | Bajo (API GObject) | 50.0 |
 
 ## Al portar a una versión nueva de GNOME Shell
 

@@ -19,6 +19,12 @@
  *
  * Para quitar una favorita se usa el menú contextual.
  *
+ * Tema (Fase 4): con el esquema claro del sistema se añade la clase
+ * bahia-dock-light, que stylesheet.css usa para los colores claros.
+ *
+ * Señal "interaction-changed": se abrió o cerró un menú, o empezó o
+ * terminó un arrastre. La usan la magnificación y el ocultado.
+ *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 import Clutter from 'gi://Clutter';
@@ -52,8 +58,9 @@ function appFromSource(source) {
     return Dash.Dash.getAppFromSource(source);
 }
 
-export const DockView = GObject.registerClass(
-class BahiaDockView extends St.BoxLayout {
+export const DockView = GObject.registerClass({
+    Signals: {'interaction-changed': {}},
+}, class BahiaDockView extends St.BoxLayout {
     /**
      * @param {Gio.Settings} settings - ajustes de la extensión
      */
@@ -64,10 +71,12 @@ class BahiaDockView extends St.BoxLayout {
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
             reactive: true,
+            track_hover: true,
         });
 
         this._settings = settings;
         this._iconSize = MAX_ICON_SIZE;
+        this._room = 1;
         this._items = new Map();
         this._focusApp = null;
 
@@ -134,9 +143,39 @@ class BahiaDockView extends St.BoxLayout {
             'item-drag-end', () => this._onDragEnd(),
             this);
 
+        // Modo claro u oscuro, igual que el tema de GNOME Shell.
+        St.Settings.get().connectObject('notify::color-scheme',
+            () => this._syncColorScheme(), this);
+        this._syncColorScheme();
+
         this.connect('destroy', () => this._onDestroy());
 
         this._applyIconSize();
+    }
+
+    _syncColorScheme() {
+        if (Main.getStyleVariant() === 'light')
+            this.add_style_class_name('bahia-dock-light');
+        else
+            this.remove_style_class_name('bahia-dock-light');
+    }
+
+    /** Iconos de apps en orden: favoritas y después abiertas. */
+    get dockItems() {
+        return [
+            ...this._favoritesBox.get_children(),
+            ...this._runningBox.get_children(),
+        ].filter(child => child instanceof DockItem);
+    }
+
+    /** Si hay un arrastre en curso sobre el dock o desde él. */
+    get dragging() {
+        return this._dragMonitor !== null;
+    }
+
+    /** Si algún icono tiene el menú contextual abierto. */
+    get menuOpen() {
+        return [...this._items.values()].some(item => item.menuOpen);
     }
 
     /** Número de botones que ocupan una fila (apps + cuadrícula). */
@@ -229,10 +268,14 @@ class BahiaDockView extends St.BoxLayout {
      */
     _createItem(app) {
         const item = new DockItem(app, this._iconSize, this._settings);
+        item.setMagnificationRoom(this._room);
         const syncLabel = () => this._label.sync(item,
             item.hover && !item.menuOpen && !this._dragMonitor, app.get_name());
         item.connect('notify::hover', syncLabel);
-        item.connect('menu-state-changed', syncLabel);
+        item.connect('menu-state-changed', () => {
+            syncLabel();
+            this.emit('interaction-changed');
+        });
         item.connect('drag-state-changed', (_item, dragging) => {
             if (dragging)
                 this._onDragBegin();
@@ -255,13 +298,31 @@ class BahiaDockView extends St.BoxLayout {
         this._applyIconSize();
     }
 
+    /**
+     * Ancho reservado para la magnificación: escala máxima, o 1 si está
+     * desactivada. Cambia el ancho de la píldora y el espacio reservado.
+     *
+     * @param {number} room - escala máxima
+     */
+    setMagnificationRoom(room) {
+        if (room === this._room)
+            return;
+
+        this._room = room;
+        for (const item of this._items.values())
+            item.setMagnificationRoom(room);
+        this._applyIconSize();
+    }
+
     _applyIconSize() {
         for (const item of this._items.values())
             item.setIconSize(this._iconSize);
         // El icono simbólico se ve mejor algo más pequeño que los de color.
         this._showAppsIcon.icon_size = Math.round(this._iconSize * 0.6);
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-        this._showAppsBin.set_size(this._iconSize * scale, this._iconSize * scale);
+        // Mismo ancho que el hueco de los iconos, para que quede alineado.
+        this._showAppsBin.set_size(Math.ceil(this._iconSize * scale * this._room),
+            this._iconSize * scale);
     }
 
     // ── Arrastre ───────────────────────────────────────────────────
@@ -273,6 +334,7 @@ class BahiaDockView extends St.BoxLayout {
         this._label.hide();
         this._dragMonitor = {dragMotion: event => this._onDragMotion(event)};
         DND.addDragMonitor(this._dragMonitor);
+        this.emit('interaction-changed');
     }
 
     _onDragEnd() {
@@ -282,6 +344,7 @@ class BahiaDockView extends St.BoxLayout {
         DND.removeDragMonitor(this._dragMonitor);
         this._dragMonitor = null;
         this._clearPlaceholder();
+        this.emit('interaction-changed');
     }
 
     _onDragMotion(dragEvent) {

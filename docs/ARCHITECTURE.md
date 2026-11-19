@@ -89,15 +89,16 @@ features/dock/
 ├── dockItem.js      ✓ Icono, indicadores, foco, clics, minimizar y origen del arrastre
 ├── dockMenu.js      ✓ Menú contextual (AppMenu de GNOME)
 ├── dockLabel.js     ✓ Etiqueta con el nombre de la app
+├── magnifier.js     ✓ Magnificación de iconos
+├── dockVisibility.js ✓ Siempre visible, ocultado automático e intellihide
 ├── nativeDash.js    ✓ Oculta y restaura el dash de la vista general
-└── magnifier.js       Magnificación (Fase 4)
 ```
 
 ### Cómo se reserva el espacio
 
 ```text
 borde izquierdo
-│◄──────── área (80 px a 1x) ────────►│
+│◄── área (≈94 px a 1x con magnificación 1,3; 80 px sin ella) ──►│
 │ padding │   píldora (DockView)   │ padding │  ventanas maximizadas →
 │  4 px   │                        │  2 px   │
 ```
@@ -113,6 +114,12 @@ borde izquierdo
 - **Etiqueta:** una sola `DockLabel` para todo el dock, en `addTopChrome`, con la clase `dash-label` del tema. `DockView` la sincroniza con `notify::hover` de cada icono y la oculta con el menú abierto o durante un arrastre.
 - **Arrastre:** cada `DockItem` es arrastrable con `DND.makeDraggable()` y su `_delegate` es él mismo. `DockView` es el destino (`handleDragOver`/`acceptDrop`) y acepta también iconos de la cuadrícula (`Dash.getAppFromSource`), cuyo arrastre sigue con las señales `item-drag-*` de la vista general. Solo hay hueco en la zona de favoritas; fuera de ella el icono vuelve a su sitio. El cambio se guarda con `AppFavorites.moveFavoriteToPos()` o `addFavoriteAtPos()` antes del siguiente repintado, como el dash nativo.
 - **Minimizar:** si todas las ventanas de la app en el escritorio actual están minimizadas, un clic las restaura; si no, y la app tiene el foco, las minimiza. El orden importa: al minimizar la última ventana, `focus_app` puede seguir apuntando a la app.
+
+### Estética y visibilidad (Fase 4)
+
+- **Tema:** `DockView` añade la clase `bahia-dock-light` cuando `Main.getStyleVariant()` devuelve `light` y escucha `notify::color-scheme` de `St.Settings`. Hay una sola hoja de estilos; las reglas claras van con ese prefijo.
+- **Magnificación:** `Magnifier` escucha `motion-event` y `notify::hover` de la píldora. Calcula la escala de cada icono con una curva coseno según su distancia al puntero, medida sobre las posiciones **en reposo** guardadas al entrar; así los iconos no tiemblan al moverse. `DockItem.setMagnification()` escala el icono desde su centro y solo aumenta la altura del botón. El hueco de cada icono ya mide el ancho del icono a tamaño máximo (`setMagnificationRoom()`), así que el icono no se sale de la píldora y magnificar no cambia el espacio reservado; solo cambia al activar, desactivar o cambiar el tamaño máximo. Si la píldora no cabe en la pantalla al crecer, se reduce el crecimiento. Un `St.Adjustment` animado suaviza la entrada y la salida.
+- **Visibilidad:** `DockVisibility` cambia `affectsStruts` del área (`DockLayout.setAffectsStruts()`, que retira y vuelve a registrar el actor) y esconde la píldora con `translation_x` y `opacity`, sin tocar el área. En los modos con ocultado añade una franja reactiva de 1 px en el borde izquierdo. Intellihide vigila las ventanas del escritorio activo (`position-changed`, `size-changed`, `notify::minimized`, `restacked`...) y agrupa las comprobaciones en un idle.
 
 ## Decisiones de diseño del dock
 

@@ -14,8 +14,12 @@
  *   view  La píldora visual (DockView), hija del área, centrada en
  *         vertical y separada del borde por el padding del área.
  *
- * Así, cambios futuros de la parte visual (magnificación, Fase 4) no
- * alteran el espacio reservado ni recolocan las ventanas.
+ * Así, la parte visual (magnificación y ocultado, Fase 4) no altera el
+ * espacio reservado ni recoloca las ventanas.
+ *
+ * Con el ocultado automático el área deja de reservar espacio
+ * (setAffectsStruts(false)): GNOME Shell solo lee affectsStruts al
+ * registrar el actor, así que se retira y se vuelve a registrar.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -42,6 +46,7 @@ export class DockLayout {
         });
         this.area.add_child(view);
 
+        this._affectsStruts = true;
         Main.layoutManager.addChrome(this.area, {
             affectsStruts: true,
             trackFullscreen: true,
@@ -52,6 +57,27 @@ export class DockLayout {
         lifecycle.connect(St.ThemeContext.get_for_stage(global.stage),
             'notify::scale-factor', () => this.update());
 
+        this.update();
+    }
+
+    /** Monitor donde está el dock. */
+    get monitor() {
+        return Main.layoutManager.primaryMonitor;
+    }
+
+    /**
+     * @param {boolean} affectsStruts - si el área reserva espacio
+     */
+    setAffectsStruts(affectsStruts) {
+        if (affectsStruts === this._affectsStruts)
+            return;
+
+        this._affectsStruts = affectsStruts;
+        Main.layoutManager.removeChrome(this.area);
+        Main.layoutManager.addChrome(this.area, {
+            affectsStruts,
+            trackFullscreen: true,
+        });
         this.update();
     }
 

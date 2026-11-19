@@ -13,6 +13,8 @@
  *      y minimizar y restaurar con clics; la quita de favoritas (solo
  *      en el entorno aislado de la prueba) para verla en la sección de
  *      abiertas, la vuelve a fijar arrastrándola, y la cierra.
+ *   6. Comprueba el modo claro, la magnificación (sin cambiar el
+ *      espacio reservado) y los modos de visibilidad (Fase 4).
  *
  * Todas las líneas que escribe empiezan por "PROBE ".
  *
@@ -83,7 +85,106 @@ export default class ProbeExtension extends Extension {
         await this._checkLabelAndMenu();
         await this._checkReorder();
         await this._clickFirstStoppedApp();
+        await this._checkTheme();
+        await this._checkMagnification();
+        await this._checkVisibility();
         console.log('PROBE fin');
+    }
+
+    /** El módulo del dock dentro de la extensión (solo para la prueba). */
+    _dockFeature() {
+        const ext = Main.extensionManager.lookup('bahia-dock@bahia-dock.github.io');
+        return ext?.stateObj?._featureManager?._features?.get('dock') ?? null;
+    }
+
+    _workAreaX() {
+        const monitor = Main.layoutManager.primaryMonitor;
+        return Main.layoutManager.getWorkAreaForMonitor(monitor.index).x;
+    }
+
+    /** Esquema claro y vuelta al oscuro (en el entorno aislado). */
+    async _checkTheme() {
+        const view = this._dockView();
+        const iface = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
+        iface.set_string('color-scheme', 'prefer-light');
+        await wait(800);
+        console.log(`PROBE tema[claro] clase=${view.has_style_class_name('bahia-dock-light')}`);
+        await this._screenshot('claro');
+        iface.set_string('color-scheme', 'default');
+        await wait(800);
+        console.log(`PROBE tema[oscuro] clase=${view.has_style_class_name('bahia-dock-light')}`);
+    }
+
+    /** Magnifica sobre el tercer icono y comprueba que no cambia el área. */
+    async _checkMagnification() {
+        const feature = this._dockFeature();
+        const items = this._dockItems();
+        if (!feature?._magnifier || items.length < 4) {
+            console.log('PROBE magnificar sin iconos suficientes');
+            return;
+        }
+
+        const area = this._dockView().get_parent();
+        const widthBefore = area.width;
+        const workBefore = this._workAreaX();
+        const [, y] = items[2].get_transformed_position();
+        feature._magnifier.magnifyAt(y + items[2].height / 2);
+        await wait(500);
+        const scales = items.slice(0, 5).map(i => i.magnification.toFixed(2)).join(',');
+        // El icono magnificado no debe salirse de la píldora por la derecha.
+        const view = this._dockView();
+        const [viewX] = view.get_transformed_position();
+        const inside = items[2].iconRightEdge <= viewX + view.width + 0.5;
+        console.log(`PROBE magnificar dentro=${inside} escalas=${scales} ` +
+            `area=${widthBefore}->${area.width} workarea=${workBefore}->${this._workAreaX()}`);
+        await this._screenshot('magnificado');
+
+        feature._magnifier.release();
+        await wait(600);
+        const max = Math.max(...this._dockItems().map(i => i.magnification));
+        console.log(`PROBE magnificar[fin] max=${max}`);
+    }
+
+    /** Ocultado automático e intellihide con la ventana maximizada. */
+    async _checkVisibility() {
+        const feature = this._dockFeature();
+        const visibility = feature?._visibility;
+        if (!visibility) {
+            console.log('PROBE visibilidad sin módulo');
+            return;
+        }
+        const settings = feature.settings;
+
+        settings.set_string('dock-visibility', 'autohide');
+        await wait(1500);
+        console.log(`PROBE visibilidad[autohide] mostrado=${visibility.shown} ` +
+            `workarea=${this._workAreaX()} borde=${visibility.edge !== null}`);
+        await this._screenshot('autohide');
+
+        visibility.edge.hover = true;
+        await wait(500);
+        console.log(`PROBE visibilidad[borde] mostrado=${visibility.shown}`);
+        visibility.edge.hover = false;
+        await wait(1500);
+        console.log(`PROBE visibilidad[salir] mostrado=${visibility.shown}`);
+
+        // La ventana del Editor de texto sigue maximizada y, sin espacio
+        // reservado, ocupa el sitio del dock.
+        settings.set_string('dock-visibility', 'intellihide');
+        await wait(1500);
+        console.log(`PROBE visibilidad[intellihide] tapado=${visibility.overlap} mostrado=${visibility.shown}`);
+
+        const wins = global.display.list_all_windows()
+            .filter(w => w.get_window_type() === Meta.WindowType.NORMAL);
+        wins.forEach(w => w.minimize());
+        await wait(1500);
+        console.log(`PROBE visibilidad[minimizada] tapado=${visibility.overlap} mostrado=${visibility.shown}`);
+        wins.forEach(w => w.unminimize());
+
+        settings.set_string('dock-visibility', 'always');
+        await wait(1500);
+        console.log(`PROBE visibilidad[always] mostrado=${visibility.shown} ` +
+            `workarea=${this._workAreaX()} borde=${visibility.edge !== null}`);
     }
 
     /** La píldora del dock (DockView). */

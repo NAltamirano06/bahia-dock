@@ -98,3 +98,44 @@
 .bahia-dock-label {
     -x-offset: 8px;
 }
+
+/* Modo claro: la vista añade bahia-dock-light cuando el sistema usa el
+ * esquema claro (dockView.js). */
+.bahia-dock.bahia-dock-light {
+    background-color: rgba(246, 246, 246, 0.80);
+    border-color: rgba(0, 0, 0, 0.10);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
+}
+
+.bahia-dock-light .bahia-dock-item:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+.bahia-dock-light .bahia-dock-item:active,
+.bahia-dock-light .bahia-dock-item-menu-open {
+    background-color: rgba(0, 0, 0, 0.14);
+}
+
+.bahia-dock-light .bahia-dock-item-focused {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.bahia-dock-light .bahia-dock-dot {
+    background-color: rgba(0, 0, 0, 0.45);
+}
+
+.bahia-dock-light .bahia-dock-item-focused .bahia-dock-dot {
+    background-color: rgba(0, 0, 0, 0.85);
+}
+
+.bahia-dock-light .bahia-dock-separator {
+    background-color: rgba(0, 0, 0, 0.15);
+}
+
+.bahia-dock-light .bahia-dock-show-apps-icon {
+    color: rgba(0, 0, 0, 0.80);
+}
+
+.bahia-dock-light .bahia-dock-placeholder {
+    background-color: rgba(0, 0, 0, 0.08);
+}

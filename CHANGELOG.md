@@ -1,5 +1,17 @@
 # Cambios
 
+## 0.5.0 — Fase 4: estética y visibilidad
+
+- Modo claro y oscuro: la píldora sigue el esquema de color del sistema, igual que GNOME Shell.
+- Magnificación: el icono bajo el puntero crece desde su centro y sus vecinos crecen menos cuanto más lejos están. La píldora es lo bastante ancha para que el icono quepa a tamaño máximo, así que magnificar no cambia el espacio reservado. Se activa o desactiva con la clave `dock-magnification` y el tamaño máximo se ajusta con `dock-magnification-scale` (por defecto 1,3; la píldora pasa de 74 a unos 88 px). Desactivada, la píldora recupera su ancho anterior.
+- Visibilidad (clave `dock-visibility`):
+  - **Siempre visible** (por defecto): como hasta ahora, reservando su espacio.
+  - **Ocultar automáticamente**: no reserva espacio; se esconde y aparece encima de las ventanas al llevar el puntero al borde izquierdo.
+  - **Ocultar si una ventana lo tapa** (intellihide): no reserva espacio y se esconde solo cuando una ventana del escritorio actual ocupa su sitio.
+  - En los dos modos con ocultado, el dock sigue a la vista con el puntero encima, con un menú abierto, durante un arrastre y en la vista general.
+- Preferencias: visibilidad, magnificación y su tamaño.
+- Prueba automática ampliada: modo claro, magnificación sin cambios en el espacio reservado y los tres modos de visibilidad.
+
 ## 0.4.0 — Fase 3: interacción
 
 - Menú contextual con clic derecho, pulsación larga o tecla Menú: el mismo de GNOME (ventanas abiertas, nueva ventana, acciones de la app, fijar o quitar de favoritos, detalles y salir), abierto a la derecha del dock.

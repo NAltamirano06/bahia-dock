@@ -11,7 +11,8 @@
 #   3. Revisa el registro y comprueba que la ventana maximizada empieza
 #      a la derecha del dock, que los indicadores, el foco y la
 #      sección de apps abiertas responden al abrir y cerrar una app, y
-#      que la etiqueta, el menú, el arrastre y minimizar funcionan.
+#      que la etiqueta, el menú, el arrastre y minimizar funcionan, y
+#      el modo claro, la magnificación y los modos de visibilidad.
 #
 # No toca la sesión real ni sus ajustes y no necesita mutter-devkit.
 #
@@ -170,6 +171,34 @@ if grep -q 'PROBE click .* windows=[1-9]' "$LOG"; then
         fail "la app fijada no pasó a la sección de favoritas"
 fi
 
+# Comprobaciones de la Fase 4
+grep -q 'PROBE tema\[claro\] clase=true' "$LOG" || fail "el dock no cambia al modo claro"
+grep -q 'PROBE tema\[oscuro\] clase=false' "$LOG" || fail "el dock no vuelve al modo oscuro"
+if grep -q 'PROBE magnificar escalas=' "$LOG"; then
+    MAG="$(grep -oP 'PROBE magnificar escalas=\K\S+' "$LOG")"
+    IFS=, read -r S0 S1 S2 S3 S4 <<<"$MAG"
+    awk -v a="$S0" -v b="$S1" -v c="$S2" -v d="$S3" 'BEGIN { exit !(c > 1.2 && c >= b && c >= d && b > a) }' ||
+        fail "la magnificación no agranda el icono bajo el puntero más que a sus vecinos ($MAG)"
+    grep -q 'PROBE magnificar dentro=true' "$LOG" ||
+        fail "el icono magnificado se sale de la píldora"
+    grep -qP 'PROBE magnificar escalas=\S+ area=(\d+(?:\.\d+)?)->\1 workarea=(\d+)->\2$' "$LOG" ||
+        fail "la magnificación cambió el área del dock o el espacio reservado"
+    grep -q 'PROBE magnificar\[fin\] max=1$' "$LOG" ||
+        fail "los iconos no vuelven a su tamaño al salir el puntero"
+fi
+grep -q 'PROBE visibilidad\[autohide\] mostrado=false workarea=0 borde=true' "$LOG" ||
+    fail "con autohide el dock no se esconde o sigue reservando espacio"
+grep -q 'PROBE visibilidad\[borde\] mostrado=true' "$LOG" ||
+    fail "el dock no aparece al llevar el puntero al borde"
+grep -q 'PROBE visibilidad\[salir\] mostrado=false' "$LOG" ||
+    fail "el dock no se vuelve a esconder al salir del borde"
+grep -q 'PROBE visibilidad\[intellihide\] tapado=true mostrado=false' "$LOG" ||
+    fail "con intellihide el dock no se esconde bajo una ventana maximizada"
+grep -q 'PROBE visibilidad\[minimizada\] tapado=false mostrado=true' "$LOG" ||
+    fail "con intellihide el dock no aparece al quitar la ventana"
+grep -qP 'PROBE visibilidad\[always\] mostrado=true workarea=[1-9]\d* borde=false' "$LOG" ||
+    fail "al volver a siempre visible no se recupera el espacio reservado"
+
 if [[ -n "$SHOTS_DIR" ]]; then
     mkdir -p "$SHOTS_DIR"
     cp "$WORK"/run/probe-*.png "$SHOTS_DIR"/ 2>/dev/null || true
@@ -177,5 +206,5 @@ if [[ -n "$SHOTS_DIR" ]]; then
     echo "Capturas y registro en $SHOTS_DIR"
 fi
 
-[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores; espacio reservado, indicadores, menú, etiqueta, arrastre y minimizar correctos"
+[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores; espacio reservado, indicadores, menú, etiqueta, arrastre, minimizar, tema, magnificación y visibilidad correctos"
 exit $FAIL

@@ -115,7 +115,9 @@ export class DockLabel {
         const offset = this.actor.get_theme_node().get_length('-x-offset');
         const labelHeight = this.actor.height;
 
-        const x = Math.floor(anchorX + anchorWidth + offset);
+        // Con la magnificación el icono puede asomar fuera de la píldora.
+        const right = Math.max(anchorX + anchorWidth, item.iconRightEdge ?? 0);
+        const x = Math.floor(right + offset);
         const y = Math.clamp(Math.floor(itemY + (itemHeight - labelHeight) / 2),
             0, global.stage.height - labelHeight);
         this.actor.set_position(x, y);

@@ -22,10 +22,18 @@
  * Arrastre: el icono es arrastrable con DND de GNOME Shell. DockView
  * hace de destino y decide dónde se suelta.
  *
+ * Magnificación (Fase 4): setMagnification() agranda el icono desde su
+ * centro con una transformación. El hueco del icono ya es tan ancho
+ * como el icono a tamaño máximo (setMagnificationRoom), así que crece
+ * dentro de la píldora sin cambiar su ancho ni el espacio reservado. En
+ * vertical el botón gana la altura extra para que los vecinos se
+ * aparten.
+ *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
+import Graphene from 'gi://Graphene';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
@@ -70,6 +78,8 @@ export const DockItem = GObject.registerClass({
         this._iconSize = 0;
         this._focused = false;
         this._dragging = false;
+        this._magnification = 1;
+        this._room = 1;
 
         // DND busca el origen y los destinos a través de _delegate.
         this._delegate = this;
@@ -79,7 +89,12 @@ export const DockItem = GObject.registerClass({
         this._content = new St.Widget({layout_manager: new Clutter.BinLayout()});
         this.set_child(this._content);
 
-        this._iconBin = new St.Bin();
+        // Centrado en su hueco; la magnificación crece desde el centro.
+        this._iconBin = new St.Bin({
+            y_align: Clutter.ActorAlign.CENTER,
+            x_align: Clutter.ActorAlign.CENTER,
+            pivot_point: new Graphene.Point({x: 0.5, y: 0.5}),
+        });
         this._content.add_child(this._iconBin);
 
         this._dots = new St.BoxLayout({
@@ -138,6 +153,7 @@ export const DockItem = GObject.registerClass({
 
         this._iconSize = iconSize;
         this._iconBin.set_child(this.app.create_icon_texture(iconSize));
+        this._updateContentSize();
     }
 
     /**
@@ -152,6 +168,55 @@ export const DockItem = GObject.registerClass({
             this.add_style_class_name('bahia-dock-item-focused');
         else
             this.remove_style_class_name('bahia-dock-item-focused');
+    }
+
+    /** Escala actual del icono (1 = sin magnificar). */
+    get magnification() {
+        return this._magnification;
+    }
+
+    /** Borde derecho del icono en el escenario, con la magnificación. */
+    get iconRightEdge() {
+        const [x] = this._iconBin.get_transformed_position();
+        const [width] = this._iconBin.get_transformed_size();
+        return x + width;
+    }
+
+    /**
+     * Agranda el icono desde su centro. El botón gana la altura extra
+     * para que los vecinos se aparten; el ancho no cambia.
+     *
+     * @param {number} scale - 1 = tamaño normal
+     */
+    setMagnification(scale) {
+        if (scale === this._magnification)
+            return;
+
+        this._magnification = scale;
+        this._iconBin.set_scale(scale, scale);
+        this._updateContentSize();
+    }
+
+    /**
+     * Reserva el ancho del icono a tamaño máximo, para que al
+     * magnificarse no se salga de la píldora.
+     *
+     * @param {number} room - escala máxima (1 = sin magnificación)
+     */
+    setMagnificationRoom(room) {
+        if (room === this._room)
+            return;
+
+        this._room = room;
+        this._updateContentSize();
+    }
+
+    _updateContentSize() {
+        const themeScale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+        const iconPx = this._iconSize * themeScale;
+        this._content.width = this._room > 1 ? Math.ceil(iconPx * this._room) : -1;
+        this._content.height = this._magnification !== 1
+            ? Math.round(iconPx * this._magnification) : -1;
     }
 
     /** Abre el menú contextual. */

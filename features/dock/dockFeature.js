@@ -7,6 +7,8 @@
  *   DockView    la píldora con los iconos, sus menús, etiquetas y el
  *               destino de los arrastres
  *   DockLayout  posición en pantalla y espacio reservado
+ *   Magnifier   agranda los iconos al pasar el puntero
+ *   DockVisibility  siempre visible, ocultado automático o intellihide
  *   NativeDash  oculta y restaura el dash de la vista general
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
@@ -16,6 +18,8 @@ import {Feature} from '../../core/feature.js';
 import {AppModel} from './appModel.js';
 import {DockLayout} from './dockLayout.js';
 import {DockView} from './dockView.js';
+import {DockVisibility} from './dockVisibility.js';
+import {Magnifier} from './magnifier.js';
 import {NativeDash} from './nativeDash.js';
 
 export class DockFeature extends Feature {
@@ -28,7 +32,13 @@ export class DockFeature extends Feature {
         this._view.setFocusApp(this._model.focusApp);
         this._layout = new DockLayout(this._view, this.lifecycle);
 
+        this._magnifier = new Magnifier(this._view, this.settings, this.lifecycle);
+        this._visibility = new DockVisibility(this._layout, this._view,
+            this.settings, this.lifecycle);
+
         this._model.connect('changed', () => {
+            // Las posiciones en reposo de la magnificación dejan de valer.
+            this._magnifier.reset();
             this._view.setApps(this._model.favorites, this._model.running);
             this._layout.update();
         });
@@ -48,6 +58,11 @@ export class DockFeature extends Feature {
         // algunas piezas no existen.
         this._nativeDash?.restore();
         this._nativeDash = null;
+
+        this._visibility?.destroy();
+        this._visibility = null;
+        this._magnifier?.destroy();
+        this._magnifier = null;
 
         // La vista se destruye junto con el área del layout; si el layout
         // no llegó a crearse, se destruye aquí.
