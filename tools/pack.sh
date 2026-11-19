@@ -14,6 +14,7 @@ gnome-extensions pack "$REPO_DIR" \
     --schema="schemas/org.gnome.shell.extensions.bahia-dock.gschema.xml" \
     --extra-source=core \
     --extra-source=features \
+    --extra-source=prefs \
     --extra-source=LICENSE
 
 ls -l "$REPO_DIR/dist"

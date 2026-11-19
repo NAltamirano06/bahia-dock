@@ -12,7 +12,10 @@
 #      a la derecha del dock, que los indicadores, el foco y la
 #      sección de apps abiertas responden al abrir y cerrar una app, y
 #      que la etiqueta, el menú, el arrastre y minimizar funcionan, y
-#      el modo claro, la magnificación y los modos de visibilidad.
+#      el modo claro, la magnificación y los modos de visibilidad, el
+#      fondo bajo el dock al abrir la vista general, los ajustes de la
+#      Fase 5 (con dos monitores virtuales) y las páginas de
+#      preferencias (tools/prefs-check.js).
 #
 # No toca la sesión real ni sus ajustes y no necesita mutter-devkit.
 #
@@ -50,7 +53,9 @@ gsettings set org.gnome.shell favorite-apps "$FAVORITES"
 gsettings set org.gnome.shell welcome-dialog-last-shown-version '999'
 gsettings --schemadir '$REPO_DIR/schemas' set org.gnome.shell.extensions.bahia-dock debug-logging true
 
-gnome-shell --headless --wayland --no-x11 --virtual-monitor 1280x800 &
+# Dos monitores virtuales: el principal (el primero) y otro para probar
+# dock-monitor.
+gnome-shell --headless --wayland --no-x11 --virtual-monitor 1280x800 --virtual-monitor 1024x768 &
 SHELL_PID=\$!
 
 for _ in \$(seq 1 30); do
@@ -70,11 +75,15 @@ if command -v gnome-text-editor >/dev/null; then
 fi
 
 gnome-extensions enable '$PROBE_UUID'
-for _ in \$(seq 1 70); do
+for _ in \$(seq 1 180); do
     grep -q 'PROBE fin\|PROBE ERROR' '$LOG' && break
     sleep 1
 done
 gnome-extensions disable '$PROBE_UUID'
+
+# Páginas de preferencias, con la sesión todavía en marcha.
+WAYLAND_DISPLAY=wayland-0 GDK_BACKEND=wayland GSETTINGS_SCHEMA_DIR='$REPO_DIR/schemas' \
+    timeout 30 gjs -m '$REPO_DIR/tools/prefs-check.js' 2>&1
 
 echo "== ESTADO"
 gnome-extensions info '$UUID'
@@ -99,6 +108,7 @@ grep -F "[$NAME]" "$LOG" | sed 's/^.*\[/[/' || echo "(ninguno)"
 echo
 echo "== Medidas"
 grep -F 'PROBE' "$LOG" | sed 's/^.*PROBE /  /' || echo "(la sonda no se ejecutó)"
+grep -F 'PREFS' "$LOG" | sed 's/^.*PREFS /  preferencias: /' || echo "(las preferencias no se comprobaron)"
 echo
 sed -n '/== ESTADO/,/== DESACTIVADA/p' "$LOG" | grep -E 'Activado|Estado|Enabled|State' || true
 echo
@@ -206,6 +216,48 @@ grep -q 'PROBE configuracion\[elegir\] clave=autohide abierto=false modo=autohid
 grep -q 'PROBE configuracion\[sincronizar\] modo=intellihide' "$LOG" ||
     fail "el menú de configuración no sigue los cambios hechos desde las preferencias"
 
+# Fondo bajo el dock al abrir la vista general: a los 40 ms la franja
+# debe parecerse al fondo de pantalla, no al gris de la vista general.
+BACKDROP="$(grep -oP 'PROBE fondo .*' "$LOG" || true)"
+if [[ -n "$BACKDROP" ]]; then
+    DESK="$(grep -oP 'escritorio=\K[0-9,]+' <<<"$BACKDROP")"
+    S40="$(grep -oP '40ms=\K[0-9,]+' <<<"$BACKDROP")"
+    OVW="$(grep -oP 'overview=\K[0-9,]+' <<<"$BACKDROP")"
+    awk -v d="$DESK" -v s="$S40" -v o="$OVW" 'BEGIN {
+        split(d, a, ","); split(s, b, ","); split(o, c, ",");
+        ds = 0; dn = 0;
+        for (i = 1; i <= 3; i++) { ds += (a[i]-b[i])^2; dn += (a[i]-c[i])^2 }
+        exit !(dn > 0 && sqrt(ds) < 0.35 * sqrt(dn)) }' ||
+        fail "al abrir la vista general la franja del dock se corta (escritorio=$DESK 40ms=$S40 vista=$OVW)"
+fi
+
+# Comprobaciones de la Fase 5
+grep -qP 'PROBE ajustes\[icono\] tamano=32 area=(\d+)->(?!\1)\d+' "$LOG" ||
+    fail "el tamaño de iconos no se aplica o no cambia el ancho del dock"
+grep -qP 'PROBE ajustes\[pildora\] estilo="[^"]*0\.30\)[^"]*" margen=12$' "$LOG" ||
+    fail "la opacidad del fondo o el margen con el borde no se aplican"
+grep -q 'PROBE ajustes\[pildora-reset\] margen=4$' "$LOG" ||
+    fail "el margen con el borde no vuelve a su valor"
+grep -q 'PROBE ajustes\[abiertas\] visible=true oculta=true vuelve=true' "$LOG" ||
+    fail "ocultar las apps abiertas no funciona"
+grep -qP 'PROBE ajustes\[cuadricula\] visible=false items=(\d+)->(\d+) menu=true' "$LOG" ||
+    fail "ocultar el botón de aplicaciones no funciona o el menú de configuración deja de abrirse"
+grep -q 'PROBE ajustes\[espera\] mostrado=false' "$LOG" ||
+    fail "la espera de ocultado no se aplica"
+grep -qP 'PROBE ajustes\[monitor-inexistente\] x=(\d+) principal=\1$' "$LOG" ||
+    fail "con un monitor inexistente el dock no vuelve al principal"
+if grep -q 'PROBE ajustes\[monitor\] conector=' "$LOG"; then
+    grep -qP 'PROBE ajustes\[monitor\] conector=\S+ x=(\d+) y=(\d+) esperado=\1,\2 alto=(\d+)/\3$' "$LOG" ||
+        fail "el dock no se mueve al monitor elegido"
+fi
+grep -q 'PREFS paginas=Apariencia,Comportamiento,Monitores' "$LOG" ||
+    fail "las páginas de preferencias no se construyen"
+grep -q 'PREFS control->clave icono=40 visibilidad=intellihide abiertas=false' "$LOG" ||
+    fail "los controles de preferencias no guardan los ajustes"
+grep -q 'PREFS clave->control visibilidad=1 monitor="NO-EXISTE-1 — desconectado"' "$LOG" ||
+    fail "las preferencias no siguen los cambios hechos desde fuera"
+grep -q 'PREFS ERROR' "$LOG" && fail "las preferencias dieron un error"
+
 if [[ -n "$SHOTS_DIR" ]]; then
     mkdir -p "$SHOTS_DIR"
     cp "$WORK"/run/probe-*.png "$SHOTS_DIR"/ 2>/dev/null || true
@@ -213,5 +265,5 @@ if [[ -n "$SHOTS_DIR" ]]; then
     echo "Capturas y registro en $SHOTS_DIR"
 fi
 
-[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores; espacio reservado, indicadores, menú, etiqueta, arrastre, minimizar, tema, magnificación, visibilidad y menú de configuración correctos"
+[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores; espacio reservado, indicadores, menú, etiqueta, arrastre, minimizar, tema, magnificación, visibilidad, menú de configuración, fondo de la vista general y preferencias correctos"
 exit $FAIL

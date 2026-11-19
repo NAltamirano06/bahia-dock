@@ -22,7 +22,7 @@ Al desactivar la extensión, `FeatureManager` desactiva los módulos en orden in
 | `extension.js` | Crea el gestor y registra los módulos | `core/`, `features/*/…Feature.js` |
 | `core/` | Contrato de módulos, gestor, ciclo de vida y registro | GJS y GNOME Shell |
 | `features/<módulo>/` | Una funcionalidad completa | `core/`, GJS y GNOME Shell |
-| `prefs.js` | Preferencias (proceso aparte) | GTK y Adwaita, **nunca** `resource:///org/gnome/shell/ui/` |
+| `prefs.js`, `prefs/` | Preferencias (proceso aparte): una página por archivo y filas comunes en `prefs/rows.js` | GTK y Adwaita, **nunca** `resource:///org/gnome/shell/ui/` |
 
 **Regla:** un módulo nunca importa a otro. Lo que necesiten compartir va a `core/`.
 
@@ -92,6 +92,7 @@ features/dock/
 ├── dockSettingsMenu.js ✓ Menú de configuración (visibilidad, magnificación, preferencias)
 ├── magnifier.js     ✓ Magnificación de iconos
 ├── dockVisibility.js ✓ Siempre visible, ocultado automático e intellihide
+├── overviewBackdrop.js ✓ Fondo de pantalla bajo el dock al abrir la vista general
 ├── nativeDash.js    ✓ Oculta y restaura el dash de la vista general
 ```
 
@@ -108,6 +109,13 @@ borde izquierdo
 - **Píldora** (`DockView`): hija del área, centrada en vertical. Puede cambiar de aspecto sin mover las ventanas, siempre que no cambie el ancho del área.
 - **Pantalla completa:** `trackFullscreen` oculta el área cuando hay una ventana a pantalla completa en el monitor.
 - **Varios monitores:** en la Fase 1 el dock solo está en el monitor principal. Se recoloca con `monitors-changed`.
+
+### Preferencias y monitores (Fase 5)
+
+- **Ajustes en caliente:** cada pieza escucha las claves que le afectan (`changed::`, conectadas con el `lifecycle`). `DockLayout` recoloca el área con `dock-monitor`, `dock-icon-size` y `dock-edge-margin` y emite `updated`; `DockVisibility`, `OverviewBackdrop` y `Magnifier` reaccionan a esa señal.
+- **Monitor:** `DockLayout.monitor` resuelve el conector guardado con `global.backend.get_monitor_manager().get_monitor_for_connector()` y vuelve al principal si no está conectado. La página de preferencias lista los monitores de GDK por su conector, que es el mismo nombre.
+- **Apariencia:** la opacidad se aplica con `set_style()` en la píldora (colores claro u oscuro según la variante) y el margen con `set_style()` en el área. Sin el botón de aplicaciones, `DockView` vuelve a crear el menú de configuración anclado a la píldora.
+- **Fondo en la vista general:** durante la animación GNOME dibuja el fondo del escritorio con `WorkspaceBackground`, recortado al área de trabajo, así que la franja reservada por el dock quedaba gris. `OverviewBackdrop` pone debajo del área un `Meta.BackgroundGroup` con el fondo del monitor, recortado a la franja, con opacidad `1 − estado` de `Main.overview._overview.controls._stateAdjustment`. Solo se ve con la vista general abierta y en modo siempre visible.
 
 ### Interacción (Fase 3)
 

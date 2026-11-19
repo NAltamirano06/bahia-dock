@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.6.0 — Fase 5: preferencias
+
+- Corregido: al entrar en la vista general, la franja del dock pasaba de golpe al gris de la vista general y se veía un corte justo en su borde. GNOME dibuja el fondo del escritorio solo dentro del área de trabajo durante la animación; ahora el dock pone el fondo de pantalla bajo su franja y lo desvanece al ritmo de la animación.
+- Preferencias organizadas en tres páginas, y todo se aplica al momento, sin reiniciar la sesión:
+  - **Apariencia**: tamaño de los iconos (32–64 px), magnificación y su tamaño, opacidad del fondo, separación con el borde, mostrar u ocultar las apps abiertas y el botón de aplicaciones.
+  - **Comportamiento**: visibilidad, espera antes de ocultar, duración de la animación, minimizar al hacer clic, módulos y registro de depuración.
+  - **Monitores**: en qué pantalla va el dock. Si ese monitor se desconecta, el dock pasa al principal y vuelve cuando se conecta de nuevo.
+- Sin el botón de aplicaciones, el menú de configuración se abre con clic derecho en una zona vacía del dock.
+- Claves nuevas: `dock-icon-size`, `dock-background-opacity`, `dock-edge-margin`, `dock-show-running`, `dock-show-apps-button`, `dock-hide-delay`, `dock-animation-time` y `dock-monitor`.
+- Prueba automática ampliada: dos monitores virtuales, color de la franja del dock durante la animación de la vista general, cada ajuste nuevo y las páginas de preferencias (`tools/prefs-check.js`).
+
 ## 0.5.0 — Fase 4: estética y visibilidad
 
 - Modo claro y oscuro: la píldora sigue el esquema de color del sistema, igual que GNOME Shell.

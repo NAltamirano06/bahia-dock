@@ -16,6 +16,10 @@
  *   6. Comprueba el modo claro, la magnificación (sin cambiar el
  *      espacio reservado), los modos de visibilidad y el menú de
  *      configuración (Fase 4).
+ *   7. Comprueba que la franja del dock muestra el fondo de pantalla al
+ *      abrir la vista general, y los ajustes de la Fase 5: tamaño de
+ *      iconos, opacidad, margen, apps abiertas, botón de aplicaciones,
+ *      espera de ocultado y monitor.
  *
  * Todas las líneas que escribe empiezan por "PROBE ".
  *
@@ -31,6 +35,7 @@ import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 Gio._promisify(Shell.Screenshot.prototype, 'screenshot');
+Gio._promisify(Shell.Screenshot.prototype, 'pick_color');
 
 const wait = ms => new Promise(resolve => {
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
@@ -58,6 +63,7 @@ export default class ProbeExtension extends Extension {
         await wait(1500);
         this._report('inicio');
         await this._screenshot('escritorio');
+        await this._checkOverviewBackdrop();
 
         for (const win of global.display.list_all_windows()) {
             if (win.get_window_type() !== Meta.WindowType.NORMAL)
@@ -90,7 +96,149 @@ export default class ProbeExtension extends Extension {
         await this._checkMagnification();
         await this._checkVisibility();
         await this._checkSettingsMenu();
+        await this._checkPreferences();
         console.log('PROBE fin');
+    }
+
+    /** Color de un píxel del escenario como "r,g,b". */
+    async _pick(x, y) {
+        const [color] = await new Shell.Screenshot().pick_color(x, y);
+        return `${color.red},${color.green},${color.blue}`;
+    }
+
+    /**
+     * Franja del dock por encima de la píldora mientras se abre la vista
+     * general: debe verse el fondo de pantalla, no un corte.
+     */
+    async _checkOverviewBackdrop() {
+        const view = this._dockView();
+        if (!view) {
+            console.log('PROBE fondo sin dock');
+            return;
+        }
+        const [, viewY] = view.get_transformed_position();
+        const panel = Main.panel.height;
+        const x = 30;
+        const y = Math.round(panel + (viewY - panel) / 2);
+
+        const desk = await this._pick(x, y);
+        const samples = [];
+        Main.overview.show();
+        const start = GLib.get_monotonic_time();
+        for (const ms of [40, 100, 200]) {
+            const elapsed = (GLib.get_monotonic_time() - start) / 1000;
+            if (ms > elapsed)
+                await wait(ms - elapsed);
+            samples.push(`${ms}ms=${await this._pick(x, y)}`);
+        }
+        await wait(1500);
+        const overview = await this._pick(x, y);
+        Main.overview.hide();
+        await wait(1500);
+
+        // Captura a mitad de animación para verlo.
+        Main.overview.show();
+        await wait(60);
+        await this._screenshot('entrando-overview');
+        await wait(1500);
+        Main.overview.hide();
+        await wait(1500);
+
+        console.log(`PROBE fondo x=${x} y=${y} escritorio=${desk} ${samples.join(' ')} overview=${overview}`);
+    }
+
+    /** Ajustes de la Fase 5: cada cambio debe verse al momento. */
+    async _checkPreferences() {
+        const feature = this._dockFeature();
+        const view = this._dockView();
+        if (!feature || !view) {
+            console.log('PROBE ajustes sin dock');
+            return;
+        }
+        const settings = feature.settings;
+        const area = view.get_parent();
+
+        // Tamaño de iconos
+        const widthBefore = area.width;
+        settings.set_int('dock-icon-size', 32);
+        await wait(500);
+        console.log(`PROBE ajustes[icono] tamano=${view.iconSize} area=${widthBefore}->${area.width}`);
+        settings.reset('dock-icon-size');
+        await wait(300);
+
+        // Opacidad y margen
+        settings.set_double('dock-background-opacity', 0.3);
+        settings.set_int('dock-edge-margin', 12);
+        await wait(500);
+        console.log(`PROBE ajustes[pildora] estilo="${view.get_style()}" margen=${view.x}`);
+        await this._screenshot('ajustes-pildora');
+        settings.reset('dock-background-opacity');
+        settings.reset('dock-edge-margin');
+        await wait(300);
+        console.log(`PROBE ajustes[pildora-reset] margen=${view.x}`);
+
+        // Apps abiertas: el Editor de texto abierto pasa a no favorito
+        // (solo en el entorno aislado) para verlo en la sección de abiertas.
+        const favorites = AppFavorites.getAppFavorites();
+        const editorId = 'org.gnome.TextEditor.desktop';
+        const wasFavorite = favorites.isFavorite(editorId);
+        if (wasFavorite)
+            favorites.removeFavorite(editorId);
+        await wait(500);
+        const shown = () => this._dockItems().some(i => i.app.get_id() === editorId);
+        const before = shown();
+        settings.set_boolean('dock-show-running', false);
+        await wait(500);
+        const hidden = !shown();
+        settings.reset('dock-show-running');
+        await wait(500);
+        console.log(`PROBE ajustes[abiertas] visible=${before} oculta=${hidden} vuelve=${shown()}`);
+        if (wasFavorite)
+            favorites.addFavoriteAtPos(editorId, 4);
+
+        // Botón de aplicaciones
+        const countBefore = view.itemCount;
+        settings.set_boolean('dock-show-apps-button', false);
+        await wait(500);
+        view.openSettingsMenu();
+        await wait(500);
+        console.log(`PROBE ajustes[cuadricula] visible=${view.showAppsButtonVisible} ` +
+            `items=${countBefore}->${view.itemCount} menu=${view.settingsMenu.isOpen}`);
+        view.settingsMenu.close();
+        settings.reset('dock-show-apps-button');
+        await wait(500);
+
+        // Espera de ocultado
+        settings.set_int('dock-hide-delay', 100);
+        settings.set_string('dock-visibility', 'autohide');
+        await wait(450);
+        console.log(`PROBE ajustes[espera] mostrado=${feature._visibility.shown}`);
+        settings.reset('dock-visibility');
+        settings.reset('dock-hide-delay');
+        await wait(1000);
+
+        // Monitor
+        const monitors = Main.layoutManager.monitors;
+        const manager = global.backend.get_monitor_manager();
+        const connectors = manager.get_monitors().map(m => m.get_connector());
+        settings.set_string('dock-monitor', 'NO-EXISTE-1');
+        await wait(500);
+        const [fallbackX] = area.get_transformed_position();
+        console.log(`PROBE ajustes[monitor-inexistente] x=${fallbackX} principal=${Main.layoutManager.primaryMonitor.x}`);
+        const other = monitors.find(m => m.index !== Main.layoutManager.primaryIndex);
+        if (other) {
+            const connector = connectors.find(c => manager.get_monitor_for_connector(c) === other.index);
+            settings.set_string('dock-monitor', connector);
+            await wait(800);
+            const [x, y] = area.get_transformed_position();
+            console.log(`PROBE ajustes[monitor] conector=${connector} x=${x} y=${y} ` +
+                `esperado=${other.x},${other.y} alto=${area.height}/${other.height}`);
+            await this._screenshot('otro-monitor');
+        } else {
+            console.log(`PROBE ajustes[monitor] un solo monitor (${connectors.join(',')})`);
+        }
+        settings.reset('dock-monitor');
+        await wait(800);
     }
 
     /** El módulo del dock dentro de la extensión (solo para la prueba). */

@@ -24,6 +24,10 @@
  * píldora (separadores, márgenes y huecos entre iconos). Ver
  * dockSettingsMenu.js.
  *
+ * Ajustes de apariencia (Fase 5): opacidad del fondo y botón de la
+ * cuadrícula visible u oculto. Sin el botón, el menú de configuración
+ * se ancla a la píldora y se abre con clic derecho en una zona vacía.
+ *
  * Tema (Fase 4): con el esquema claro del sistema se añade la clase
  * bahia-dock-light, que stylesheet.css usa para los colores claros.
  *
@@ -47,8 +51,17 @@ import {DockItem} from './dockItem.js';
 import {DockLabel} from './dockLabel.js';
 import {DockSettingsMenu} from './dockSettingsMenu.js';
 
-export const MAX_ICON_SIZE = 48;
+// Límites absolutos; el tamaño elegido viene de dock-icon-size y
+// DockLayout lo reduce si los iconos no caben.
+export const MAX_ICON_SIZE = 64;
 export const MIN_ICON_SIZE = 24;
+
+// Color de fondo de la píldora en cada modo; la opacidad viene de
+// dock-background-opacity.
+const BACKGROUND_RGB = {
+    dark: '30, 30, 30',
+    light: '246, 246, 246',
+};
 
 const SHOW_APPS_LABEL = 'Mostrar aplicaciones';
 
@@ -82,7 +95,7 @@ export const DockView = GObject.registerClass({
         });
 
         this._settings = settings;
-        this._iconSize = MAX_ICON_SIZE;
+        this._iconSize = 48;
         this._room = 1;
         this._items = new Map();
         this._focusApp = null;
@@ -138,21 +151,20 @@ export const DockView = GObject.registerClass({
         this.add_child(this._showAppsButton);
 
         this._label = new DockLabel(this);
-        const syncShowAppsLabel = () => this._label?.sync(this._showAppsButton,
+        this._syncShowAppsLabel = () => this._label?.sync(this._showAppsButton,
             this._showAppsButton.hover && !this._dragMonitor && !this._settingsMenu?.isOpen,
             SHOW_APPS_LABEL);
-        this._showAppsButton.connect('notify::hover', syncShowAppsLabel);
+        this._showAppsButton.connect('notify::hover', this._syncShowAppsLabel);
 
-        this._settingsMenu = new DockSettingsMenu(this._showAppsButton, settings,
-            openPreferences, isOpen => {
-                if (isOpen)
-                    this._showAppsButton.add_style_class_name('bahia-dock-item-menu-open');
-                else
-                    this._showAppsButton.remove_style_class_name('bahia-dock-item-menu-open');
-                syncShowAppsLabel();
-                this.emit('interaction-changed');
-            });
+        this._openPreferences = openPreferences;
+        this._settingsMenu = null;
         this._setupSettingsMenuTriggers();
+
+        settings.connectObject(
+            'changed::dock-show-apps-button', () => this._syncShowAppsButton(),
+            'changed::dock-background-opacity', () => this._syncBackground(),
+            this);
+        this._syncShowAppsButton();
 
         // Arrastres que empiezan en la cuadrícula de aplicaciones.
         Main.overview.connectObject(
@@ -176,6 +188,41 @@ export const DockView = GObject.registerClass({
             this.add_style_class_name('bahia-dock-light');
         else
             this.remove_style_class_name('bahia-dock-light');
+        this._syncBackground();
+    }
+
+    /** Fondo de la píldora con la opacidad elegida. */
+    _syncBackground() {
+        const variant = Main.getStyleVariant() === 'light' ? 'light' : 'dark';
+        const opacity = Math.clamp(this._settings.get_double('dock-background-opacity'), 0, 1);
+        this.set_style(`background-color: rgba(${BACKGROUND_RGB[variant]}, ${opacity.toFixed(2)});`);
+    }
+
+    /** Si se muestra el botón de la cuadrícula (dock-show-apps-button). */
+    get showAppsButtonVisible() {
+        return this._showAppsButton.visible;
+    }
+
+    /**
+     * Muestra u oculta el botón de la cuadrícula y vuelve a crear el
+     * menú de configuración anclado al botón o, sin él, a la píldora.
+     */
+    _syncShowAppsButton() {
+        const visible = this._settings.get_boolean('dock-show-apps-button');
+        this._showAppsButton.visible = visible;
+        this._separator.visible = visible && this._items.size > 0;
+
+        this._settingsMenu?.destroy();
+        this._settingsMenu = new DockSettingsMenu(visible ? this._showAppsButton : this,
+            this._settings, this._openPreferences, isOpen => {
+                if (isOpen)
+                    this._showAppsButton.add_style_class_name('bahia-dock-item-menu-open');
+                else
+                    this._showAppsButton.remove_style_class_name('bahia-dock-item-menu-open');
+                this._syncShowAppsLabel();
+                this.emit('interaction-changed');
+            });
+        this.emit('interaction-changed');
     }
 
     /** Iconos de apps en orden: favoritas y después abiertas. */
@@ -233,9 +280,9 @@ export const DockView = GObject.registerClass({
         });
     }
 
-    /** Número de botones que ocupan una fila (apps + cuadrícula). */
+    /** Número de botones que ocupan una fila (apps + cuadrícula si se ve). */
     get itemCount() {
-        return this._items.size + 1;
+        return this._items.size + (this._showAppsButton.visible ? 1 : 0);
     }
 
     /** Separadores visibles (cada uno ocupa una franja fija de altura). */
@@ -279,7 +326,7 @@ export const DockView = GObject.registerClass({
 
         this._runningSeparator.visible = favorites.length > 0 && running.length > 0;
         this._runningBox.visible = running.length > 0;
-        this._separator.visible = this._items.size > 0;
+        this._separator.visible = this._showAppsButton.visible && this._items.size > 0;
         this._updateFocus();
     }
 

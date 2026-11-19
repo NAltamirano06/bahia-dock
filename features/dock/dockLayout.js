@@ -1,6 +1,14 @@
 /* features/dock/dockLayout.js
  *
- * Coloca el dock en el monitor principal y reserva su espacio.
+ * Coloca el dock en su monitor y reserva su espacio.
+ *
+ * Monitor (Fase 5): el de la clave dock-monitor (nombre del conector,
+ * por ejemplo "eDP-1"), o el principal si está vacía o ese monitor no
+ * está conectado. Se recoloca al conectar o desconectar pantallas.
+ *
+ * Emite "updated" cada vez que recoloca el área (monitor, escala,
+ * ajustes), para que el ocultado y el fondo de la vista general se
+ * ajusten.
  *
  * Usa dos actores:
  *
@@ -12,7 +20,8 @@
  *         área ocupa toda la altura aunque el dock sea flotante.
  *
  *   view  La píldora visual (DockView), hija del área, centrada en
- *         vertical y separada del borde por el padding del área.
+ *         vertical y separada del borde por el padding del área
+ *         (dock-edge-margin a la izquierda).
  *
  * Así, la parte visual (magnificación y ocultado, Fase 4) no altera el
  * espacio reservado ni recoloca las ventanas.
@@ -27,16 +36,18 @@ import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import {EventEmitter} from 'resource:///org/gnome/shell/misc/signals.js';
 
-import {MAX_ICON_SIZE} from './dockView.js';
-
-export class DockLayout {
+export class DockLayout extends EventEmitter {
     /**
      * @param {DockView} view - contenedor visual que se colocará
+     * @param {Gio.Settings} settings - ajustes de la extensión
      * @param {Lifecycle} lifecycle - registro de señales del módulo
      */
-    constructor(view, lifecycle) {
+    constructor(view, settings, lifecycle) {
+        super();
         this._view = view;
+        this._settings = settings;
 
         this.area = new St.Widget({
             name: 'bahiaDockArea',
@@ -56,13 +67,28 @@ export class DockLayout {
             () => this.update());
         lifecycle.connect(St.ThemeContext.get_for_stage(global.stage),
             'notify::scale-factor', () => this.update());
+        for (const key of ['dock-monitor', 'dock-icon-size', 'dock-edge-margin'])
+            lifecycle.connect(settings, `changed::${key}`, () => this.update());
 
         this.update();
     }
 
-    /** Monitor donde está el dock. */
+    /** Monitor donde está el dock: el elegido o, si no existe, el principal. */
     get monitor() {
+        const connector = this._settings.get_string('dock-monitor');
+        const monitors = Main.layoutManager.monitors;
+        if (connector) {
+            const index = global.backend.get_monitor_manager()
+                .get_monitor_for_connector(connector);
+            if (index >= 0 && monitors[index])
+                return monitors[index];
+        }
         return Main.layoutManager.primaryMonitor;
+    }
+
+    /** Si el área reserva espacio (modo siempre visible). */
+    get affectsStruts() {
+        return this._affectsStruts;
     }
 
     /**
@@ -83,13 +109,15 @@ export class DockLayout {
 
     /** Recoloca el área y ajusta el tamaño de los iconos al monitor. */
     update() {
-        const monitor = Main.layoutManager.primaryMonitor;
+        const monitor = this.monitor;
         if (!monitor)
             return;
 
+        this.area.set_style(`padding-left: ${this._settings.get_int('dock-edge-margin')}px;`);
         this.area.set_position(monitor.x, monitor.y);
         this.area.set_height(monitor.height);
         this._fitIconSize(monitor);
+        this.emit('updated');
     }
 
     /**
@@ -110,7 +138,7 @@ export class DockLayout {
         const available = monitor.height / scale - verticalMargins -
             perSeparator * this._view.separatorCount;
         const fit = available / count - perItemExtra;
-        this._view.setIconSize(Math.min(MAX_ICON_SIZE, fit));
+        this._view.setIconSize(Math.min(this._settings.get_int('dock-icon-size'), fit));
     }
 
     destroy() {
@@ -119,5 +147,8 @@ export class DockLayout {
         this.area.destroy();
         this.area = null;
         this._view = null;
+        this._settings = null;
+        // Las conexiones a "updated" se hacen con el lifecycle del módulo,
+        // que las retira después de destruir las piezas.
     }
 }

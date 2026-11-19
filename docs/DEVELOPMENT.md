@@ -33,13 +33,16 @@ tools/headless-test.sh 20                  # 20 ciclos
 tools/headless-test.sh 5 ~/capturas-dock   # además guarda capturas y registro
 ```
 
-Arranca un GNOME Shell sin pantalla (monitor virtual de 1280x800) en un entorno aislado, con sus propios ajustes y bus D-Bus, así que no toca la sesión real. Copia tus favoritas en modo lectura para que el dock muestre lo mismo. No necesita `mutter-devkit`.
+Arranca un GNOME Shell sin pantalla (dos monitores virtuales: 1280x800, el principal, y 1024x768) en un entorno aislado, con sus propios ajustes y bus D-Bus, así que no toca la sesión real. Copia tus favoritas en modo lectura para que el dock muestre lo mismo. No necesita `mutter-devkit`.
 
 Después de los ciclos activa la extensión auxiliar `tools/test-probe/` (no se empaqueta), que:
 - mide el dock, el área de trabajo y el dash nativo;
 - abre el Editor de texto, lo maximiza y comprueba que empieza a la derecha del dock;
 - simula un clic en un icono y comprueba que la aplicación se abre;
-- guarda capturas del escritorio, la ventana maximizada y la vista general.
+- guarda capturas del escritorio, la ventana maximizada y la vista general;
+- recorre lo añadido en cada fase (menús, arrastre, magnificación, visibilidad, el fondo bajo el dock al abrir la vista general y cada ajuste de la Fase 5, incluido mover el dock al segundo monitor).
+
+Después ejecuta `tools/prefs-check.js`, que construye las páginas de preferencias dentro de esa sesión, cambia controles y comprueba que las claves cambian (y al revés).
 
 Termina con `OK` y código 0 si todo es correcto. Pásala antes de cada commit.
 
@@ -94,6 +97,8 @@ Antes de dar una fase por terminada, en la sesión anidada:
 10. Cambiar entre modo claro y oscuro desde el menú del sistema (desde la Fase 4).
 11. Pasar el puntero por el dock de arriba abajo: la magnificación debe ser fluida y no mover las ventanas.
 12. Probar los tres modos de visibilidad, con una ventana maximizada, desde las preferencias y desde el menú de configuración (clic derecho en el botón de la cuadrícula o en una zona vacía del dock).
+13. Entrar en la vista general con Super: la franja del dock no debe verse cortada (desde la Fase 5).
+14. Recorrer las tres páginas de preferencias y comprobar que cada cambio se aplica al instante; con varios monitores, mover el dock y desconectar la pantalla.
 
 ## Empaquetado
 

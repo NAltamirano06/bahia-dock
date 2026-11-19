@@ -15,6 +15,9 @@
  *   ─────
  *   Preferencias del dock…
  *
+ * Si el botón de la cuadrícula está oculto (dock-show-apps-button),
+ * DockView crea el menú anclado a la píldora.
+ *
  * Cambia las mismas claves de GSettings que la ventana de preferencias,
  * así que ambas se mantienen sincronizadas.
  *

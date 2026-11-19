@@ -28,11 +28,9 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const EDGE_WIDTH = 1;
-const SHOW_TIME = 200;
-const HIDE_TIME = 250;
-// Espera antes de esconder, para que no desaparezca al rozar el borde
-// de la píldora.
-const HIDE_DELAY = 500;
+// La espera antes de esconder (dock-hide-delay) evita que desaparezca al
+// rozar el borde de la píldora; la duración de las animaciones viene de
+// dock-animation-time.
 
 // Ventanas que cuentan para intellihide.
 const OVERLAP_TYPES = [
@@ -69,7 +67,8 @@ export class DockVisibility {
         lifecycle.connect(view, 'interaction-changed', () => this._sync());
         lifecycle.connect(Main.overview, 'showing', () => this._sync());
         lifecycle.connect(Main.overview, 'hidden', () => this._sync());
-        lifecycle.connect(Main.layoutManager, 'monitors-changed', () => {
+        // El layout se recoloca con los monitores y con dock-monitor.
+        lifecycle.connect(layout, 'updated', () => {
             this._placeEdge();
             this._queueOverlapCheck();
         });
@@ -173,7 +172,8 @@ export class DockVisibility {
             this._clearHide();
             this._show();
         } else if (this._shown && !this._hideId) {
-            this._hideId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HIDE_DELAY, () => {
+            const delay = Math.max(0, this._settings.get_int('dock-hide-delay'));
+            this._hideId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
                 this._hideId = 0;
                 if (!this._mustShow())
                     this._hide();
@@ -190,7 +190,7 @@ export class DockVisibility {
         this._view.ease({
             translation_x: 0,
             opacity: 255,
-            duration: SHOW_TIME,
+            duration: this._animationTime,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
     }
@@ -206,9 +206,13 @@ export class DockVisibility {
         this._view.ease({
             translation_x: -(this._view.x + this._view.width),
             opacity: 0,
-            duration: HIDE_TIME,
+            duration: this._animationTime,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
         });
+    }
+
+    get _animationTime() {
+        return Math.max(0, this._settings.get_int('dock-animation-time'));
     }
 
     _clearHide() {
