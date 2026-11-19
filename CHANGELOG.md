@@ -1,5 +1,9 @@
 # Cambios
 
+## Sin publicar
+
+- La píldora del dock queda más cerca del borde izquierdo (4 px) y de las ventanas maximizadas (2 px). El espacio reservado pasa de 88 a 80 px a 1x.
+
 ## 0.3.0 — Fase 2: apps abiertas
 
 - Indicadores de ventanas: un punto por ventana abierta (hasta tres) a la izquierda de cada icono, sin cambiar el ancho del dock.

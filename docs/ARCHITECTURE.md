@@ -96,9 +96,9 @@ features/dock/
 
 ```text
 borde izquierdo
-│◄──────── área (88 px a 1x) ────────►│
+│◄──────── área (80 px a 1x) ────────►│
 │ padding │   píldora (DockView)   │ padding │  ventanas maximizadas →
-│  8 px   │                        │  6 px   │
+│  4 px   │                        │  2 px   │
 ```
 
 - **Área** (`DockLayout.area`): `St.Widget` transparente, altura completa del monitor, registrado con `Main.layoutManager.addChrome(area, {affectsStruts: true, trackFullscreen: true})`. Como toca el borde izquierdo de arriba abajo, GNOME Shell crea un strut `LEFT` del ancho del área y lo resta del área de trabajo.

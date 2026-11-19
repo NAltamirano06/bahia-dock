@@ -14,7 +14,7 @@
  * entre la píldora y el borde de la pantalla, y forma parte del espacio
  * reservado. */
 .bahia-dock-area {
-    padding: 0 6px 0 8px;
+    padding: 0 2px 0 4px;
 }
 
 /* Píldora flotante */
