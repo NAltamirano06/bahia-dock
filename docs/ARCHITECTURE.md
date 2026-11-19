@@ -89,6 +89,7 @@ features/dock/
 ├── dockItem.js      ✓ Icono, indicadores, foco, clics, minimizar y origen del arrastre
 ├── dockMenu.js      ✓ Menú contextual (AppMenu de GNOME)
 ├── dockLabel.js     ✓ Etiqueta con el nombre de la app
+├── dockSettingsMenu.js ✓ Menú de configuración (visibilidad, magnificación, preferencias)
 ├── magnifier.js     ✓ Magnificación de iconos
 ├── dockVisibility.js ✓ Siempre visible, ocultado automático e intellihide
 ├── nativeDash.js    ✓ Oculta y restaura el dash de la vista general
@@ -119,6 +120,7 @@ borde izquierdo
 
 - **Tema:** `DockView` añade la clase `bahia-dock-light` cuando `Main.getStyleVariant()` devuelve `light` y escucha `notify::color-scheme` de `St.Settings`. Hay una sola hoja de estilos; las reglas claras van con ese prefijo.
 - **Magnificación:** `Magnifier` escucha `motion-event` y `notify::hover` de la píldora. Calcula la escala de cada icono con una curva coseno según su distancia al puntero, medida sobre las posiciones **en reposo** guardadas al entrar; así los iconos no tiemblan al moverse. `DockItem.setMagnification()` escala el icono desde su centro y solo aumenta la altura del botón. El hueco de cada icono ya mide el ancho del icono a tamaño máximo (`setMagnificationRoom()`), así que el icono no se sale de la píldora y magnificar no cambia el espacio reservado; solo cambia al activar, desactivar o cambiar el tamaño máximo. Si la píldora no cabe en la pantalla al crecer, se reduce el crecimiento. Un `St.Adjustment` animado suaviza la entrada y la salida.
+- **Menú de configuración:** `DockSettingsMenu` es un `PopupMenu` anclado al botón de la cuadrícula. Se abre con un `Clutter.ClickGesture` (botón secundario) o un `Clutter.LongPressGesture` en ese botón, y con `button-press-event` de la píldora cuando el actor del evento es la propia píldora (separadores y cajas no son reactivos, así que los clics en zonas vacías llegan a ella). Escribe las mismas claves de GSettings que `prefs.js` y se sincroniza con `changed::`. "Preferencias del dock…" llama a `Extension.openPreferences()`.
 - **Visibilidad:** `DockVisibility` cambia `affectsStruts` del área (`DockLayout.setAffectsStruts()`, que retira y vuelve a registrar el actor) y esconde la píldora con `translation_x` y `opacity`, sin tocar el área. En los modos con ocultado añade una franja reactiva de 1 px en el borde izquierdo. Intellihide vigila las ventanas del escritorio activo (`position-changed`, `size-changed`, `notify::minimized`, `restacked`...) y agrupa las comprobaciones en un idle.
 
 ## Decisiones de diseño del dock

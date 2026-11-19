@@ -9,8 +9,9 @@
   - **Ocultar automáticamente**: no reserva espacio; se esconde y aparece encima de las ventanas al llevar el puntero al borde izquierdo.
   - **Ocultar si una ventana lo tapa** (intellihide): no reserva espacio y se esconde solo cuando una ventana del escritorio actual ocupa su sitio.
   - En los dos modos con ocultado, el dock sigue a la vista con el puntero encima, con un menú abierto, durante un arrastre y en la vista general.
+- Menú de configuración en el propio dock, como en macOS: clic derecho (o pulsación larga) en el botón de la cuadrícula, o clic derecho en una zona vacía de la píldora. Permite elegir la visibilidad, activar o desactivar la magnificación y minimizar al clic, y abrir las preferencias.
 - Preferencias: visibilidad, magnificación y su tamaño.
-- Prueba automática ampliada: modo claro, magnificación sin cambios en el espacio reservado y los tres modos de visibilidad.
+- Prueba automática ampliada: modo claro, magnificación sin cambios en el espacio reservado, los tres modos de visibilidad y el menú de configuración.
 
 ## 0.4.0 — Fase 3: interacción
 

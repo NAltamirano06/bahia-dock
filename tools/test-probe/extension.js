@@ -14,7 +14,8 @@
  *      en el entorno aislado de la prueba) para verla en la sección de
  *      abiertas, la vuelve a fijar arrastrándola, y la cierra.
  *   6. Comprueba el modo claro, la magnificación (sin cambiar el
- *      espacio reservado) y los modos de visibilidad (Fase 4).
+ *      espacio reservado), los modos de visibilidad y el menú de
+ *      configuración (Fase 4).
  *
  * Todas las líneas que escribe empiezan por "PROBE ".
  *
@@ -88,6 +89,7 @@ export default class ProbeExtension extends Extension {
         await this._checkTheme();
         await this._checkMagnification();
         await this._checkVisibility();
+        await this._checkSettingsMenu();
         console.log('PROBE fin');
     }
 
@@ -185,6 +187,35 @@ export default class ProbeExtension extends Extension {
         await wait(1500);
         console.log(`PROBE visibilidad[always] mostrado=${visibility.shown} ` +
             `workarea=${this._workAreaX()} borde=${visibility.edge !== null}`);
+    }
+
+    /** Menú de configuración: abre, elige un modo y sigue a GSettings. */
+    async _checkSettingsMenu() {
+        const view = this._dockView();
+        const feature = this._dockFeature();
+        const menu = view?.settingsMenu;
+        if (!menu || !feature) {
+            console.log('PROBE configuracion sin menú');
+            return;
+        }
+        const settings = feature.settings;
+
+        view.openSettingsMenu();
+        await wait(600);
+        console.log(`PROBE configuracion[abrir] abierto=${menu.isOpen} modo=${menu.selectedMode}`);
+        await this._screenshot('configuracion');
+
+        menu.activateMode('autohide');
+        await wait(800);
+        console.log(`PROBE configuracion[elegir] clave=${settings.get_string('dock-visibility')} ` +
+            `abierto=${menu.isOpen} modo=${menu.selectedMode}`);
+
+        settings.set_string('dock-visibility', 'intellihide');
+        await wait(300);
+        console.log(`PROBE configuracion[sincronizar] modo=${menu.selectedMode}`);
+
+        settings.set_string('dock-visibility', 'always');
+        await wait(1000);
     }
 
     /** La píldora del dock (DockView). */

@@ -27,7 +27,8 @@ export class DockFeature extends Feature {
 
     _onEnable() {
         this._model = new AppModel(this.lifecycle);
-        this._view = new DockView(this.settings);
+        this._view = new DockView(this.settings,
+            () => this.extension.openPreferences());
         this._view.setApps(this._model.favorites, this._model.running);
         this._view.setFocusApp(this._model.focusApp);
         this._layout = new DockLayout(this._view, this.lifecycle);

@@ -19,6 +19,11 @@
  *
  * Para quitar una favorita se usa el menú contextual.
  *
+ * Menú de configuración (Fase 4): clic derecho o pulsación larga en el
+ * botón de la cuadrícula, o clic derecho en una zona vacía de la
+ * píldora (separadores, márgenes y huecos entre iconos). Ver
+ * dockSettingsMenu.js.
+ *
  * Tema (Fase 4): con el esquema claro del sistema se añade la clase
  * bahia-dock-light, que stylesheet.css usa para los colores claros.
  *
@@ -40,6 +45,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {DockItem} from './dockItem.js';
 import {DockLabel} from './dockLabel.js';
+import {DockSettingsMenu} from './dockSettingsMenu.js';
 
 export const MAX_ICON_SIZE = 48;
 export const MIN_ICON_SIZE = 24;
@@ -63,8 +69,9 @@ export const DockView = GObject.registerClass({
 }, class BahiaDockView extends St.BoxLayout {
     /**
      * @param {Gio.Settings} settings - ajustes de la extensión
+     * @param {Function} openPreferences - abre la ventana de preferencias
      */
-    _init(settings) {
+    _init(settings, openPreferences) {
         super._init({
             style_class: 'bahia-dock',
             orientation: Clutter.Orientation.VERTICAL,
@@ -131,10 +138,21 @@ export const DockView = GObject.registerClass({
         this.add_child(this._showAppsButton);
 
         this._label = new DockLabel(this);
-        this._showAppsButton.connect('notify::hover', () => {
-            this._label?.sync(this._showAppsButton,
-                this._showAppsButton.hover && !this._dragMonitor, SHOW_APPS_LABEL);
-        });
+        const syncShowAppsLabel = () => this._label?.sync(this._showAppsButton,
+            this._showAppsButton.hover && !this._dragMonitor && !this._settingsMenu?.isOpen,
+            SHOW_APPS_LABEL);
+        this._showAppsButton.connect('notify::hover', syncShowAppsLabel);
+
+        this._settingsMenu = new DockSettingsMenu(this._showAppsButton, settings,
+            openPreferences, isOpen => {
+                if (isOpen)
+                    this._showAppsButton.add_style_class_name('bahia-dock-item-menu-open');
+                else
+                    this._showAppsButton.remove_style_class_name('bahia-dock-item-menu-open');
+                syncShowAppsLabel();
+                this.emit('interaction-changed');
+            });
+        this._setupSettingsMenuTriggers();
 
         // Arrastres que empiezan en la cuadrícula de aplicaciones.
         Main.overview.connectObject(
@@ -173,9 +191,46 @@ export const DockView = GObject.registerClass({
         return this._dragMonitor !== null;
     }
 
-    /** Si algún icono tiene el menú contextual abierto. */
+    /** Si hay algún menú abierto (de una app o de configuración). */
     get menuOpen() {
-        return [...this._items.values()].some(item => item.menuOpen);
+        return this._settingsMenu?.isOpen ||
+            [...this._items.values()].some(item => item.menuOpen);
+    }
+
+    /** El menú de configuración (para la prueba automática). */
+    get settingsMenu() {
+        return this._settingsMenu;
+    }
+
+    /** Abre el menú de configuración. */
+    openSettingsMenu() {
+        if (!this._dragMonitor)
+            this._settingsMenu.open();
+    }
+
+    _setupSettingsMenuTriggers() {
+        const rightClick = new Clutter.ClickGesture({
+            required_button: Clutter.BUTTON_SECONDARY,
+            recognize_on_press: true,
+        });
+        rightClick.connect('recognize', () => this.openSettingsMenu());
+        this._showAppsButton.add_action(rightClick);
+
+        const longPress = new Clutter.LongPressGesture();
+        longPress.connect('recognize', () => this.openSettingsMenu());
+        this._showAppsButton.add_action(longPress);
+
+        // Zonas vacías de la píldora: los separadores y las cajas no son
+        // reactivos, así que el clic llega a la propia píldora. Los
+        // clics sobre un icono tienen su propio menú.
+        this.connect('button-press-event', (_actor, event) => {
+            if (event.get_button() !== Clutter.BUTTON_SECONDARY ||
+                global.stage.get_event_actor(event) !== this)
+                return Clutter.EVENT_PROPAGATE;
+
+            this.openSettingsMenu();
+            return Clutter.EVENT_STOP;
+        });
     }
 
     /** Número de botones que ocupan una fila (apps + cuadrícula). */
@@ -471,6 +526,8 @@ export const DockView = GObject.registerClass({
 
     _onDestroy() {
         this._onDragEnd();
+        this._settingsMenu.destroy();
+        this._settingsMenu = null;
         this._label.destroy();
         this._label = null;
         this._settings = null;

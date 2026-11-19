@@ -199,6 +199,13 @@ grep -q 'PROBE visibilidad\[minimizada\] tapado=false mostrado=true' "$LOG" ||
 grep -qP 'PROBE visibilidad\[always\] mostrado=true workarea=[1-9]\d* borde=false' "$LOG" ||
     fail "al volver a siempre visible no se recupera el espacio reservado"
 
+grep -q 'PROBE configuracion\[abrir\] abierto=true modo=always' "$LOG" ||
+    fail "el menú de configuración no se abre o no marca el modo actual"
+grep -q 'PROBE configuracion\[elegir\] clave=autohide abierto=false modo=autohide' "$LOG" ||
+    fail "elegir un modo en el menú de configuración no cambia el ajuste"
+grep -q 'PROBE configuracion\[sincronizar\] modo=intellihide' "$LOG" ||
+    fail "el menú de configuración no sigue los cambios hechos desde las preferencias"
+
 if [[ -n "$SHOTS_DIR" ]]; then
     mkdir -p "$SHOTS_DIR"
     cp "$WORK"/run/probe-*.png "$SHOTS_DIR"/ 2>/dev/null || true
@@ -206,5 +213,5 @@ if [[ -n "$SHOTS_DIR" ]]; then
     echo "Capturas y registro en $SHOTS_DIR"
 fi
 
-[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores; espacio reservado, indicadores, menú, etiqueta, arrastre, minimizar, tema, magnificación y visibilidad correctos"
+[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores; espacio reservado, indicadores, menú, etiqueta, arrastre, minimizar, tema, magnificación, visibilidad y menú de configuración correctos"
 exit $FAIL

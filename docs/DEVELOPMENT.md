@@ -93,7 +93,7 @@ Antes de dar una fase por terminada, en la sesión anidada:
 9. Clic en la app con el foco para minimizarla y otro para restaurarla.
 10. Cambiar entre modo claro y oscuro desde el menú del sistema (desde la Fase 4).
 11. Pasar el puntero por el dock de arriba abajo: la magnificación debe ser fluida y no mover las ventanas.
-12. Probar los tres modos de visibilidad en las preferencias, con una ventana maximizada.
+12. Probar los tres modos de visibilidad, con una ventana maximizada, desde las preferencias y desde el menú de configuración (clic derecho en el botón de la cuadrícula o en una zona vacía del dock).
 
 ## Empaquetado
 
