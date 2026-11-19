@@ -10,22 +10,54 @@
  *
  * Solo refleja el estado de AppModel; no decide qué aplicaciones hay.
  *
+ * También es el destino de los arrastres (Fase 3). Acepta iconos del
+ * propio dock y de la cuadrícula de aplicaciones:
+ *
+ *   - sobre la zona de favoritas aparece un hueco donde caerá el icono;
+ *     al soltar, la app se mueve a esa posición o se fija como favorita;
+ *   - fuera de esa zona no hay hueco y el icono vuelve a su sitio.
+ *
+ * Para quitar una favorita se usa el menú contextual.
+ *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
 import St from 'gi://St';
 
+import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
+import * as Dash from 'resource:///org/gnome/shell/ui/dash.js';
+import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {DockItem} from './dockItem.js';
+import {DockLabel} from './dockLabel.js';
 
 export const MAX_ICON_SIZE = 48;
 export const MIN_ICON_SIZE = 24;
 
+const SHOW_APPS_LABEL = 'Mostrar aplicaciones';
+
+/**
+ * Aplicación que se arrastra, venga del dock o de la cuadrícula.
+ *
+ * @param {object} source - origen del arrastre (el _delegate del actor)
+ * @returns {Shell.App|null}
+ */
+function appFromSource(source) {
+    if (source instanceof DockItem)
+        return source.app;
+    return Dash.Dash.getAppFromSource(source);
+}
+
 export const DockView = GObject.registerClass(
 class BahiaDockView extends St.BoxLayout {
-    _init() {
+    /**
+     * @param {Gio.Settings} settings - ajustes de la extensión
+     */
+    _init(settings) {
         super._init({
             style_class: 'bahia-dock',
             orientation: Clutter.Orientation.VERTICAL,
@@ -34,9 +66,16 @@ class BahiaDockView extends St.BoxLayout {
             reactive: true,
         });
 
+        this._settings = settings;
         this._iconSize = MAX_ICON_SIZE;
         this._items = new Map();
         this._focusApp = null;
+
+        // Arrastre: DND busca los destinos a través de _delegate.
+        this._delegate = this;
+        this._dragMonitor = null;
+        this._placeholder = null;
+        this._placeholderPos = -1;
 
         this._favoritesBox = new St.BoxLayout({
             name: 'bahiaDockFavorites',
@@ -63,7 +102,7 @@ class BahiaDockView extends St.BoxLayout {
             reactive: true,
             can_focus: true,
             track_hover: true,
-            accessible_name: 'Mostrar aplicaciones',
+            accessible_name: SHOW_APPS_LABEL,
         });
         this._showAppsIcon = new St.Icon({
             icon_name: 'view-app-grid-symbolic',
@@ -82,6 +121,21 @@ class BahiaDockView extends St.BoxLayout {
         });
         this.add_child(this._showAppsButton);
 
+        this._label = new DockLabel(this);
+        this._showAppsButton.connect('notify::hover', () => {
+            this._label?.sync(this._showAppsButton,
+                this._showAppsButton.hover && !this._dragMonitor, SHOW_APPS_LABEL);
+        });
+
+        // Arrastres que empiezan en la cuadrícula de aplicaciones.
+        Main.overview.connectObject(
+            'item-drag-begin', () => this._onDragBegin(),
+            'item-drag-cancelled', () => this._onDragEnd(),
+            'item-drag-end', () => this._onDragEnd(),
+            this);
+
+        this.connect('destroy', () => this._onDestroy());
+
         this._applyIconSize();
     }
 
@@ -98,6 +152,11 @@ class BahiaDockView extends St.BoxLayout {
 
     get iconSize() {
         return this._iconSize;
+    }
+
+    /** Texto de la etiqueta visible, o null (para la prueba automática). */
+    get labelText() {
+        return this._label.visibleText;
     }
 
     /**
@@ -119,6 +178,8 @@ class BahiaDockView extends St.BoxLayout {
             }
         }
 
+        // El hueco del arrastre alteraría los índices.
+        this._clearPlaceholder();
         this._syncBox(this._favoritesBox, favorites);
         this._syncBox(this._runningBox, running);
 
@@ -150,7 +211,7 @@ class BahiaDockView extends St.BoxLayout {
             const id = app.get_id();
             let item = this._items.get(id);
             if (!item) {
-                item = new DockItem(app, this._iconSize);
+                item = this._createItem(app);
                 this._items.set(id, item);
                 box.insert_child_at_index(item, index);
             } else if (item.get_parent() !== box) {
@@ -160,6 +221,26 @@ class BahiaDockView extends St.BoxLayout {
                 box.set_child_at_index(item, index);
             }
         });
+    }
+
+    /**
+     * @param {Shell.App} app - aplicación del icono nuevo
+     * @returns {DockItem}
+     */
+    _createItem(app) {
+        const item = new DockItem(app, this._iconSize, this._settings);
+        const syncLabel = () => this._label.sync(item,
+            item.hover && !item.menuOpen && !this._dragMonitor, app.get_name());
+        item.connect('notify::hover', syncLabel);
+        item.connect('menu-state-changed', syncLabel);
+        item.connect('drag-state-changed', (_item, dragging) => {
+            if (dragging)
+                this._onDragBegin();
+            else
+                this._onDragEnd();
+        });
+        item.connect('destroy', () => this._label?.sync(item, false, ''));
+        return item;
     }
 
     /**
@@ -181,5 +262,154 @@ class BahiaDockView extends St.BoxLayout {
         this._showAppsIcon.icon_size = Math.round(this._iconSize * 0.6);
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
         this._showAppsBin.set_size(this._iconSize * scale, this._iconSize * scale);
+    }
+
+    // ── Arrastre ───────────────────────────────────────────────────
+
+    _onDragBegin() {
+        if (this._dragMonitor)
+            return;
+
+        this._label.hide();
+        this._dragMonitor = {dragMotion: event => this._onDragMotion(event)};
+        DND.addDragMonitor(this._dragMonitor);
+    }
+
+    _onDragEnd() {
+        if (!this._dragMonitor)
+            return;
+
+        DND.removeDragMonitor(this._dragMonitor);
+        this._dragMonitor = null;
+        this._clearPlaceholder();
+    }
+
+    _onDragMotion(dragEvent) {
+        // Fuera del dock no hay hueco.
+        if (!this.contains(dragEvent.targetActor))
+            this._clearPlaceholder();
+        return DND.DragMotionResult.CONTINUE;
+    }
+
+    /** Si las favoritas se pueden cambiar (puede bloquearlas el administrador). */
+    _canEditFavorites(app) {
+        return app && !app.is_window_backed() &&
+            global.settings.is_writable('favorite-apps');
+    }
+
+    /** Iconos de favoritas, sin el hueco. */
+    _favoriteItems() {
+        return this._favoritesBox.get_children()
+            .filter(child => child !== this._placeholder);
+    }
+
+    /**
+     * Límite inferior de la zona de favoritas, en coordenadas de la
+     * píldora: la mitad del separador que viene después.
+     */
+    _favoritesZoneEnd() {
+        const next = [this._runningSeparator, this._separator]
+            .find(s => s.visible);
+        if (next)
+            return next.y + next.height / 2;
+        return this._showAppsButton.y;
+    }
+
+    /**
+     * Posición de inserción entre las favoritas para una altura dada:
+     * cuántos iconos tienen su centro por encima del puntero.
+     *
+     * @param {number} y - coordenada vertical en la píldora
+     * @returns {number}
+     */
+    _insertPosition(y) {
+        const boxY = y - this._favoritesBox.y;
+        return this._favoriteItems()
+            .filter(item => (item.y + item.height / 2) < boxY).length;
+    }
+
+    handleDragOver(source, _actor, _x, y) {
+        const app = appFromSource(source);
+        if (!this._canEditFavorites(app) || y > this._favoritesZoneEnd()) {
+            this._clearPlaceholder();
+            return DND.DragMotionResult.NO_DROP;
+        }
+
+        const pos = this._insertPosition(y);
+        const favorites = AppFavorites.getAppFavorites().getFavorites();
+        const current = favorites.indexOf(app);
+
+        // Soltar justo antes o después de sí misma no cambia nada.
+        if (current !== -1 && (pos === current || pos === current + 1)) {
+            this._clearPlaceholder();
+            return DND.DragMotionResult.CONTINUE;
+        }
+
+        this._showPlaceholder(pos);
+        return current === -1
+            ? DND.DragMotionResult.COPY_DROP
+            : DND.DragMotionResult.MOVE_DROP;
+    }
+
+    acceptDrop(source) {
+        const app = appFromSource(source);
+        if (!this._placeholder || !this._canEditFavorites(app))
+            return false;
+
+        // Índice de destino entre las favoritas, sin contar la propia app.
+        const id = app.get_id();
+        const pos = this._favoriteItems()
+            .slice(0, this._placeholderPos)
+            .filter(item => item.app.get_id() !== id).length;
+
+        this._clearPlaceholder();
+
+        // Como el dash nativo: el cambio se aplica antes del siguiente
+        // repintado, cuando DND ya terminó con el icono arrastrado.
+        const favorites = AppFavorites.getAppFavorites();
+        const isFavorite = favorites.isFavorite(id);
+        global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+            if (isFavorite)
+                favorites.moveFavoriteToPos(id, pos);
+            else
+                favorites.addFavoriteAtPos(id, pos);
+            return GLib.SOURCE_REMOVE;
+        });
+        return true;
+    }
+
+    /**
+     * @param {number} pos - posición del hueco entre las favoritas
+     */
+    _showPlaceholder(pos) {
+        if (this._placeholder && pos === this._placeholderPos)
+            return;
+
+        if (!this._placeholder) {
+            const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+            this._placeholder = new St.Widget({
+                style_class: 'bahia-dock-placeholder',
+                width: this._iconSize * scale,
+                height: this._iconSize * scale / 2,
+                x_align: Clutter.ActorAlign.CENTER,
+            });
+            this._favoritesBox.insert_child_at_index(this._placeholder, pos);
+        } else {
+            this._favoritesBox.set_child_at_index(this._placeholder, pos);
+        }
+        this._placeholderPos = pos;
+    }
+
+    _clearPlaceholder() {
+        this._placeholder?.destroy();
+        this._placeholder = null;
+        this._placeholderPos = -1;
+    }
+
+    _onDestroy() {
+        this._onDragEnd();
+        this._label.destroy();
+        this._label = null;
+        this._settings = null;
     }
 });

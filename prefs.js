@@ -4,8 +4,8 @@
  * aparte (la app Extensiones), no dentro de GNOME Shell, así que no
  * puede importar módulos de resource:///org/gnome/shell/ui/.
  *
- * En la Fase 0 solo ofrece los interruptores básicos. Las páginas por
- * módulo llegarán en la Fase 5 dentro de prefs/.
+ * Ofrece los interruptores básicos y los ajustes del dock. Las páginas
+ * por módulo llegarán en la Fase 5 dentro de prefs/.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -29,6 +29,12 @@ export default class BahiaDockPreferences extends ExtensionPreferences {
         page.add(modules);
         modules.add(this._switchRow(settings, 'dock-enabled',
             'Dock', 'Muestra el dock vertical en el borde izquierdo'));
+
+        const dock = new Adw.PreferencesGroup({title: 'Dock'});
+        page.add(dock);
+        dock.add(this._switchRow(settings, 'dock-minimize-on-click',
+            'Minimizar al hacer clic',
+            'Un clic en la app que tiene el foco minimiza sus ventanas'));
 
         const development = new Adw.PreferencesGroup({title: 'Desarrollo'});
         page.add(development);

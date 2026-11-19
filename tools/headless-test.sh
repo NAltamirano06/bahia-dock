@@ -9,8 +9,9 @@
 #      tools/test-probe, que maximiza la ventana, mide el dock y el área
 #      de trabajo, y hace capturas de pantalla.
 #   3. Revisa el registro y comprueba que la ventana maximizada empieza
-#      a la derecha del dock, y que los indicadores, el foco y la
-#      sección de apps abiertas responden al abrir y cerrar una app.
+#      a la derecha del dock, que los indicadores, el foco y la
+#      sección de apps abiertas responden al abrir y cerrar una app, y
+#      que la etiqueta, el menú, el arrastre y minimizar funcionan.
 #
 # No toca la sesión real ni sus ajustes y no necesita mutter-devkit.
 #
@@ -142,6 +143,33 @@ if grep -q 'PROBE click .* windows=[1-9]' "$LOG"; then
         fail "la app cerrada sigue en el dock"
 fi
 
+# Comprobaciones de la Fase 3
+LABEL_LINE="$(grep -oP 'PROBE etiqueta\[hover\] \K.*' "$LOG" || true)"
+if [[ -n "$LABEL_LINE" ]]; then
+    LABEL_GOT="$(sed -E 's/^"([^"]*)".*/\1/' <<<"$LABEL_LINE")"
+    LABEL_WANT="$(sed -E 's/.*esperado="([^"]*)"$/\1/' <<<"$LABEL_LINE")"
+    [[ "$LABEL_GOT" == "$LABEL_WANT" ]] ||
+        fail "la etiqueta muestra \"$LABEL_GOT\", se esperaba \"$LABEL_WANT\""
+    grep -q 'PROBE etiqueta\[fuera\] "null"' "$LOG" ||
+        fail "la etiqueta no se oculta al salir del icono"
+    grep -q 'PROBE menu\[abrir\] abierto=true' "$LOG" || fail "el menú contextual no se abrió"
+    grep -q 'PROBE menu\[cerrar\] abierto=false' "$LOG" || fail "el menú contextual no se cerró"
+fi
+if grep -q 'PROBE reordenar .* motion=' "$LOG"; then
+    grep -qP 'PROBE reordenar \S+ motion=2 aceptado=true pos=2 esperado=2' "$LOG" ||
+        fail "arrastrar una favorita no la cambió de posición"
+fi
+if grep -q 'PROBE click .* windows=[1-9]' "$LOG"; then
+    grep -qP 'PROBE minimizar \S+ minimizadas=([1-9]\d*)/\1$' "$LOG" ||
+        fail "el clic en la app con el foco no minimizó sus ventanas"
+    grep -qP 'PROBE restaurar \S+ minimizadas=0 foco=true' "$LOG" ||
+        fail "el segundo clic no restauró ni enfocó la app"
+    grep -qP 'PROBE fijar \S+ motion=1 aceptado=true pos=0 esperado=0' "$LOG" ||
+        fail "arrastrar una app abierta a las favoritas no la fijó"
+    grep -qP 'PROBE item\[fijada\] \S+ section=bahiaDockFavorites' "$LOG" ||
+        fail "la app fijada no pasó a la sección de favoritas"
+fi
+
 if [[ -n "$SHOTS_DIR" ]]; then
     mkdir -p "$SHOTS_DIR"
     cp "$WORK"/run/probe-*.png "$SHOTS_DIR"/ 2>/dev/null || true
@@ -149,5 +177,5 @@ if [[ -n "$SHOTS_DIR" ]]; then
     echo "Capturas y registro en $SHOTS_DIR"
 fi
 
-[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores, espacio reservado e indicadores correctos"
+[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores; espacio reservado, indicadores, menú, etiqueta, arrastre y minimizar correctos"
 exit $FAIL

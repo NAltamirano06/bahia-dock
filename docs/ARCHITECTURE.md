@@ -85,10 +85,11 @@ features/dock/
 ├── dockFeature.js   ✓ Coordina el módulo
 ├── appModel.js      ✓ Favoritas, abiertas no favoritas y foco, sin interfaz
 ├── dockLayout.js    ✓ Monitor, posición y espacio reservado
-├── dockView.js      ✓ Píldora: favoritas, abiertas y botón de aplicaciones
-├── dockItem.js      ✓ Icono, indicadores de ventanas, foco y clics
+├── dockView.js      ✓ Píldora: favoritas, abiertas, botón de aplicaciones y destino del arrastre
+├── dockItem.js      ✓ Icono, indicadores, foco, clics, minimizar y origen del arrastre
+├── dockMenu.js      ✓ Menú contextual (AppMenu de GNOME)
+├── dockLabel.js     ✓ Etiqueta con el nombre de la app
 ├── nativeDash.js    ✓ Oculta y restaura el dash de la vista general
-├── dockMenu.js        Menú contextual (Fase 3)
 └── magnifier.js       Magnificación (Fase 4)
 ```
 
@@ -105,6 +106,13 @@ borde izquierdo
 - **Píldora** (`DockView`): hija del área, centrada en vertical. Puede cambiar de aspecto sin mover las ventanas, siempre que no cambie el ancho del área.
 - **Pantalla completa:** `trackFullscreen` oculta el área cuando hay una ventana a pantalla completa en el monitor.
 - **Varios monitores:** en la Fase 1 el dock solo está en el monitor principal. Se recoloca con `monitors-changed`.
+
+### Interacción (Fase 3)
+
+- **Menú:** `DockMenu` crea el `AppMenu` de GNOME la primera vez que se abre, con `St.Side.LEFT` para que quede a la derecha del icono. Se abre con clic derecho (`Clutter.ClickGesture`), pulsación larga (`Clutter.LongPressGesture`) o la señal `popup-menu` del teclado.
+- **Etiqueta:** una sola `DockLabel` para todo el dock, en `addTopChrome`, con la clase `dash-label` del tema. `DockView` la sincroniza con `notify::hover` de cada icono y la oculta con el menú abierto o durante un arrastre.
+- **Arrastre:** cada `DockItem` es arrastrable con `DND.makeDraggable()` y su `_delegate` es él mismo. `DockView` es el destino (`handleDragOver`/`acceptDrop`) y acepta también iconos de la cuadrícula (`Dash.getAppFromSource`), cuyo arrastre sigue con las señales `item-drag-*` de la vista general. Solo hay hueco en la zona de favoritas; fuera de ella el icono vuelve a su sitio. El cambio se guarda con `AppFavorites.moveFavoriteToPos()` o `addFavoriteAtPos()` antes del siguiente repintado, como el dash nativo.
+- **Minimizar:** si todas las ventanas de la app en el escritorio actual están minimizadas, un clic las restaura; si no, y la app tiene el foco, las minimiza. El orden importa: al minimizar la última ventana, `focus_app` puede seguir apuntando a la app.
 
 ## Decisiones de diseño del dock
 

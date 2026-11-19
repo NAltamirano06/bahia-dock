@@ -10,6 +10,13 @@
       <description>Muestra el dock vertical en el borde izquierdo del escritorio.</description>
     </key>
 
+    <!-- Dock -->
+    <key name="dock-minimize-on-click" type="b">
+      <default>true</default>
+      <summary>Minimizar al hacer clic</summary>
+      <description>Al hacer clic en el icono de la aplicación que tiene el foco, minimiza sus ventanas del escritorio actual.</description>
+    </key>
+
     <!-- Estado interno -->
     <key name="native-dash-notice-shown" type="b">
       <default>false</default>

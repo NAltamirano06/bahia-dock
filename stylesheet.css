@@ -45,6 +45,10 @@
     background-color: rgba(255, 255, 255, 0.20);
 }
 
+.bahia-dock-item-menu-open {
+    background-color: rgba(255, 255, 255, 0.20);
+}
+
 .bahia-dock-item:focus {
     box-shadow: inset 0 0 0 2px rgba(53, 132, 228, 0.8);
 }
@@ -81,4 +85,16 @@
 
 .bahia-dock-show-apps-icon {
     color: rgba(255, 255, 255, 0.92);
+}
+
+/* Hueco donde caerá un icono arrastrado (dockView.js) */
+.bahia-dock-placeholder {
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Etiqueta con el nombre de la app; hereda el estilo de .dash-label
+ * del tema. -x-offset es la separación con la píldora. */
+.bahia-dock-label {
+    -x-offset: 8px;
 }

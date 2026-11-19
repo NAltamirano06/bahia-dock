@@ -1,6 +1,14 @@
 # Cambios
 
-## Sin publicar
+## 0.4.0 — Fase 3: interacción
+
+- Menú contextual con clic derecho, pulsación larga o tecla Menú: el mismo de GNOME (ventanas abiertas, nueva ventana, acciones de la app, fijar o quitar de favoritos, detalles y salir), abierto a la derecha del dock.
+- Etiqueta con el nombre de la app al pasar el puntero, también en el botón de la cuadrícula. Aparece tras un instante y cambia al momento al pasar a otro icono.
+- Arrastrar iconos para reordenar las favoritas. Una app abierta, o un icono de la cuadrícula de aplicaciones, se fija como favorita al soltarlo entre ellas. Un hueco marca dónde caerá.
+- Clic en la app con el foco: minimiza sus ventanas del escritorio actual. Otro clic las restaura. Se puede desactivar en las preferencias (clave `dock-minimize-on-click`).
+- Prueba automática ampliada: etiqueta, menú, reordenar, fijar arrastrando, minimizar y restaurar.
+
+### Ajustes
 
 - La píldora del dock queda más cerca del borde izquierdo (4 px) y de las ventanas maximizadas (2 px). El espacio reservado pasa de 88 a 80 px a 1x.
 

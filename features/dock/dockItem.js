@@ -1,7 +1,7 @@
 /* features/dock/dockItem.js
  *
  * Un icono del dock: el icono de la aplicación, los indicadores de
- * ventanas abiertas y el clic para abrir o enfocar.
+ * ventanas abiertas, los clics, el menú contextual y el arrastre.
  *
  * Indicadores: un punto por ventana (máximo MAX_DOTS) en el lado
  * izquierdo del icono, el que mira al borde de la pantalla. Se dibujan
@@ -9,7 +9,18 @@
  * del botón ni el ancho del dock (y por tanto tampoco el espacio
  * reservado).
  *
- * El menú, los tooltips y el arrastre llegan en la Fase 3.
+ * Clic (botón izquierdo):
+ *   - app cerrada: la abre;
+ *   - app abierta sin el foco: trae al frente su ventana más reciente;
+ *     si todas sus ventanas de este escritorio están minimizadas, las
+ *     restaura todas;
+ *   - app con el foco: minimiza sus ventanas de este escritorio (si la
+ *     clave dock-minimize-on-click está activada).
+ * Ctrl+clic o clic central: ventana nueva, como en el dash nativo.
+ * Clic derecho, pulsación larga o tecla Menú: menú contextual.
+ *
+ * Arrastre: el icono es arrastrable con DND de GNOME Shell. DockView
+ * hace de destino y decide dónde se suelta.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -18,17 +29,33 @@ import GObject from 'gi://GObject';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
+import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
+import {DockMenu} from './dockMenu.js';
 
 export const MAX_DOTS = 3;
 
-export const DockItem = GObject.registerClass(
-class BahiaDockItem extends St.Button {
+// Mismo umbral que los iconos de la cuadrícula: un clic rápido no
+// inicia un arrastre.
+const DRAG_TIMEOUT_THRESHOLD = 200;
+
+// Opacidad del icono en su sitio mientras se arrastra su copia (St no
+// admite opacity en CSS).
+const DRAGGING_OPACITY = 100;
+
+export const DockItem = GObject.registerClass({
+    Signals: {
+        'menu-state-changed': {param_types: [GObject.TYPE_BOOLEAN]},
+        'drag-state-changed': {param_types: [GObject.TYPE_BOOLEAN]},
+    },
+}, class BahiaDockItem extends St.Button {
     /**
      * @param {Shell.App} app - aplicación que representa
      * @param {number} iconSize - tamaño lógico del icono en píxeles
+     * @param {Gio.Settings} settings - ajustes de la extensión
      */
-    _init(app, iconSize) {
+    _init(app, iconSize, settings) {
         super._init({
             style_class: 'bahia-dock-item',
             reactive: true,
@@ -39,8 +66,13 @@ class BahiaDockItem extends St.Button {
         });
 
         this.app = app;
+        this._settings = settings;
         this._iconSize = 0;
         this._focused = false;
+        this._dragging = false;
+
+        // DND busca el origen y los destinos a través de _delegate.
+        this._delegate = this;
 
         // Icono e indicadores comparten una caja con BinLayout para
         // superponerse.
@@ -69,6 +101,12 @@ class BahiaDockItem extends St.Button {
             'notify::state', () => this._updateIndicators(),
             this);
         this._updateIndicators();
+
+        this._menu = new DockMenu(this, isOpen => this._onMenuStateChanged(isOpen));
+        this._setupGestures();
+        this._setupDrag();
+
+        this.connect('destroy', () => this._onDestroy());
     }
 
     /** Número de puntos visibles (0 si la app está cerrada). */
@@ -79,6 +117,16 @@ class BahiaDockItem extends St.Button {
     /** Si la app tiene la ventana con el foco. */
     get focused() {
         return this._focused;
+    }
+
+    /** Si el menú contextual está abierto. */
+    get menuOpen() {
+        return this._menu?.isOpen ?? false;
+    }
+
+    /** Si el icono se está arrastrando. */
+    get dragging() {
+        return this._dragging;
     }
 
     /**
@@ -105,6 +153,16 @@ class BahiaDockItem extends St.Button {
         else
             this.remove_style_class_name('bahia-dock-item-focused');
     }
+
+    /** Abre el menú contextual. */
+    popupMenu() {
+        if (this._dragging)
+            return;
+
+        this._menu.open();
+    }
+
+    // ── Indicadores ────────────────────────────────────────────────
 
     /** Ventanas que cuentan para los indicadores. */
     _windowCount() {
@@ -134,23 +192,152 @@ class BahiaDockItem extends St.Button {
         this._dots.translation_x = this._dots.get_theme_node().get_length('offset-x');
     }
 
+    // ── Clics ──────────────────────────────────────────────────────
+
     vfunc_clicked(button) {
         // Igual que el dash nativo: Ctrl+clic o clic central abre una
-        // ventana nueva si la aplicación ya está abierta. Un clic normal
-        // en una app abierta trae al frente su ventana más reciente.
+        // ventana nueva si la aplicación ya está abierta.
         const event = Clutter.get_current_event();
         const modifiers = event ? event.get_state() : 0;
         const ctrl = (modifiers & Clutter.ModifierType.CONTROL_MASK) !== 0;
         const middle = button === Clutter.BUTTON_MIDDLE;
-        const newWindow = this.app.can_open_new_window() &&
-            this.app.state === Shell.AppState.RUNNING &&
-            (ctrl || middle);
+        const running = this.app.state === Shell.AppState.RUNNING;
+        const newWindow = this.app.can_open_new_window() && running && (ctrl || middle);
 
-        if (newWindow)
+        if (newWindow) {
             this.app.open_new_window(-1);
+            Main.overview.hide();
+            return;
+        }
+
+        // En la vista general un clic solo sale de ella hacia la app.
+        const windows = running ? this._windowsOnWorkspace() : [];
+        if (Main.overview.visible || windows.length === 0) {
+            this.app.activate();
+            Main.overview.hide();
+            return;
+        }
+
+        // Restaurar va primero: al minimizar la última ventana, GNOME
+        // puede dejar la app como focus_app aunque no se vea nada.
+        if (windows.every(w => w.minimized))
+            this._restoreWindows(windows);
+        else if (this._shouldMinimize())
+            this._minimizeWindows(windows);
         else
             this.app.activate();
+    }
 
-        Main.overview.hide();
+    /** Ventanas normales de la app en el escritorio activo, de la más reciente a la más antigua. */
+    _windowsOnWorkspace() {
+        const workspace = global.workspace_manager.get_active_workspace();
+        return this.app.get_windows().filter(w =>
+            !w.skip_taskbar && w.located_on_workspace(workspace));
+    }
+
+    _shouldMinimize() {
+        return this._settings.get_boolean('dock-minimize-on-click') &&
+            Shell.WindowTracker.get_default().focus_app === this.app;
+    }
+
+    /**
+     * @param {Meta.Window[]} windows - ventanas que se minimizan
+     */
+    _minimizeWindows(windows) {
+        for (const win of windows) {
+            if (win.can_minimize())
+                win.minimize();
+        }
+    }
+
+    /**
+     * Restaura las ventanas en orden inverso para que la más reciente
+     * quede encima, y le da el foco.
+     *
+     * @param {Meta.Window[]} windows - ventanas minimizadas, la más reciente primero
+     */
+    _restoreWindows(windows) {
+        for (const win of [...windows].reverse())
+            win.unminimize();
+        Main.activateWindow(windows[0]);
+    }
+
+    // ── Menú contextual ────────────────────────────────────────────
+
+    _setupGestures() {
+        // Igual que los iconos de la cuadrícula (appDisplay.js).
+        const longPress = new Clutter.LongPressGesture();
+        longPress.connect('recognize', () => this.popupMenu());
+        this.add_action(longPress);
+
+        const rightClick = new Clutter.ClickGesture({
+            required_button: Clutter.BUTTON_SECONDARY,
+            recognize_on_press: true,
+        });
+        rightClick.connect('recognize', () => this.popupMenu());
+        this.add_action(rightClick);
+
+        // Tecla Menú o Mayús+F10 con el icono enfocado.
+        this.connect('popup-menu', () => {
+            this.popupMenu();
+            this._menu.focusFirstItem();
+        });
+    }
+
+    /**
+     * @param {boolean} isOpen - si el menú acaba de abrirse
+     */
+    _onMenuStateChanged(isOpen) {
+        if (isOpen)
+            this.add_style_class_name('bahia-dock-item-menu-open');
+        else
+            this.remove_style_class_name('bahia-dock-item-menu-open');
+        this.emit('menu-state-changed', isOpen);
+    }
+
+    // ── Arrastre ───────────────────────────────────────────────────
+
+    _setupDrag() {
+        this._draggable = DND.makeDraggable(this, {
+            timeoutThreshold: DRAG_TIMEOUT_THRESHOLD,
+        });
+        this._draggable.connectObject(
+            'drag-begin', () => this._setDragging(true),
+            'drag-cancelled', () => this._setDragging(false),
+            'drag-end', () => this._setDragging(false),
+            this);
+    }
+
+    /**
+     * @param {boolean} dragging - si empieza o termina el arrastre
+     */
+    _setDragging(dragging) {
+        if (dragging === this._dragging)
+            return;
+
+        this._dragging = dragging;
+        if (dragging)
+            this._menu.close();
+        this.opacity = dragging ? DRAGGING_OPACITY : 255;
+        this.emit('drag-state-changed', dragging);
+    }
+
+    /** Lo que se ve bajo el puntero al arrastrar: una copia del icono. */
+    getDragActor() {
+        return this.app.create_icon_texture(this._iconSize);
+    }
+
+    /** Actor al que vuelve la copia si se cancela el arrastre. */
+    getDragActorSource() {
+        return this._iconBin;
+    }
+
+    _onDestroy() {
+        if (this._dragging)
+            this._setDragging(false);
+        this._menu.destroy();
+        this._menu = null;
+        this._draggable = null;
+        this._settings = null;
     }
 });

@@ -37,12 +37,14 @@ APIs internas de GNOME Shell usadas por el dock:
 | `Shell.WindowTracker.focus_app`, `notify::focus-app` | `appModel.js` | Bajo (API GObject) | 50.0 |
 | `connectObject()` (`misc/signalTracker.js`) | `dockItem.js` | Bajo | 50.0 |
 
-Previstas para fases siguientes:
-
-| API | Uso previsto | Referencia en Shell 50 |
-|---|---|---|
-| `AppMenu` | Menú contextual (Fase 3) | `ui/appMenu.js` |
-| `DND.makeDraggable()` | Arrastrar iconos (Fase 3) | `ui/dnd.js` |
+| `AppMenu(source, St.Side, {favoritesSection, showSingleWindows})`, `setApp()` | `dockMenu.js` | Medio: clase interna de `ui/appMenu.js` | 50.0 |
+| `PopupMenu.PopupMenuManager`, `BoxPointer.PopupAnimation` | `dockMenu.js` | Bajo | 50.0 |
+| `Clutter.ClickGesture`, `Clutter.LongPressGesture` | `dockItem.js` | Bajo (API GObject, nueva en 50) | 50.0 |
+| `DND.makeDraggable()`, `addDragMonitor()`, `DragMotionResult`, `_delegate` con `getDragActor()`, `handleDragOver()`, `acceptDrop()` | `dockItem.js`, `dockView.js` | Medio: `ui/dnd.js` cambió a gestos (`St.DndStartGesture`) en versiones recientes | 50.0 |
+| `Dash.Dash.getAppFromSource()`, señales `item-drag-begin/end/cancelled` de `Main.overview` | `dockView.js` | Medio | 50.0 |
+| `AppFavorites`: `moveFavoriteToPos()`, `addFavoriteAtPos()`, `isFavorite()` | `dockView.js` | Bajo | 50.0 |
+| `Main.layoutManager.addTopChrome()`; clase de tema `dash-label` | `dockLabel.js` | Bajo; en 50 `addChrome` solo admite `trackFullscreen` y `affectsStruts` | 50.0 |
+| `Meta.Window`: `minimize()`, `unminimize()`, `can_minimize()`, `located_on_workspace()`; `Main.activateWindow()` | `dockItem.js` | Bajo | 50.0 |
 
 ## Al portar a una versión nueva de GNOME Shell
 

@@ -88,6 +88,9 @@ Antes de dar una fase por terminada, en la sesión anidada:
 4. Poner una ventana en pantalla completa y salir.
 5. Maximizar una ventana y comprobar que no queda debajo del dock (desde la Fase 1).
 6. Revisar que no haya errores ni avisos con `[Bahía Dock]` en el registro.
+7. Clic derecho en un icono: el menú se abre a la derecha y se cierra con Esc (desde la Fase 3).
+8. Arrastrar una favorita a otra posición, y un icono de la cuadrícula al dock.
+9. Clic en la app con el foco para minimizarla y otro para restaurarla.
 
 ## Empaquetado
 

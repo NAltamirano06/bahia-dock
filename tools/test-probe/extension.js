@@ -7,9 +7,12 @@
  *   2. Maximiza las ventanas abiertas y registra su posición.
  *   3. Guarda capturas del escritorio y de la vista general en
  *      $XDG_RUNTIME_DIR/probe-*.png.
- *   4. Abre una app desde el dock y comprueba sus indicadores y el
- *      foco; la quita de favoritas (solo en el entorno aislado de la
- *      prueba) para verla en la sección de abiertas, y la cierra.
+ *   4. Comprueba la etiqueta con el nombre, el menú contextual y el
+ *      reordenado de favoritas arrastrando (Fase 3).
+ *   5. Abre una app desde el dock y comprueba sus indicadores, el foco
+ *      y minimizar y restaurar con clics; la quita de favoritas (solo
+ *      en el entorno aislado de la prueba) para verla en la sección de
+ *      abiertas, la vuelve a fijar arrastrándola, y la cierra.
  *
  * Todas las líneas que escribe empiezan por "PROBE ".
  *
@@ -77,8 +80,77 @@ export default class ProbeExtension extends Extension {
         Main.overview.hide();
         await wait(1000);
 
+        await this._checkLabelAndMenu();
+        await this._checkReorder();
         await this._clickFirstStoppedApp();
         console.log('PROBE fin');
+    }
+
+    /** La píldora del dock (DockView). */
+    _dockView() {
+        const area = Main.layoutManager.uiGroup.get_children()
+            .find(a => a.name === 'bahiaDockArea');
+        return area?.get_first_child() ?? null;
+    }
+
+    /**
+     * Coordenada vertical, en la píldora, del centro de un icono de
+     * favoritas más un desplazamiento.
+     */
+    _favoriteY(item, delta) {
+        const box = item.get_parent();
+        return box.y + item.y + item.height / 2 + delta;
+    }
+
+    /** Etiqueta al pasar el puntero y menú contextual del primer icono. */
+    async _checkLabelAndMenu() {
+        const view = this._dockView();
+        const item = this._dockItems()[0];
+        if (!view || !item) {
+            console.log('PROBE etiqueta sin iconos');
+            return;
+        }
+
+        item.hover = true;
+        await wait(800);
+        console.log(`PROBE etiqueta[hover] "${view.labelText}" esperado="${item.app.get_name()}"`);
+        item.hover = false;
+        await wait(600);
+        console.log(`PROBE etiqueta[fuera] "${view.labelText}"`);
+
+        item.popupMenu();
+        await wait(600);
+        console.log(`PROBE menu[abrir] abierto=${item.menuOpen}`);
+        await this._screenshot('menu');
+        item._menu.close();
+        await wait(600);
+        console.log(`PROBE menu[cerrar] abierto=${item.menuOpen}`);
+    }
+
+    /**
+     * Arrastra la primera favorita detrás de la tercera usando los
+     * métodos de destino de DockView, y la devuelve a su sitio.
+     */
+    async _checkReorder() {
+        const view = this._dockView();
+        const favorites = AppFavorites.getAppFavorites();
+        const items = this._dockItems()
+            .filter(i => i.get_parent().name === 'bahiaDockFavorites');
+        if (!view || items.length < 3) {
+            console.log('PROBE reordenar sin favoritas suficientes');
+            return;
+        }
+
+        const source = items[0];
+        const id = source.app.get_id();
+        const motion = view.handleDragOver(source, null, 0, this._favoriteY(items[2], 1));
+        const accepted = view.acceptDrop(source);
+        await wait(800);
+        const pos = favorites.getFavorites().findIndex(app => app.get_id() === id);
+        console.log(`PROBE reordenar ${id} motion=${motion} aceptado=${accepted} pos=${pos} esperado=2`);
+
+        favorites.moveFavoriteToPos(id, 0);
+        await wait(500);
     }
 
     /** Iconos del dock (DockItem), en orden. */
@@ -141,12 +213,39 @@ export default class ProbeExtension extends Extension {
         this._reportItem('abierta', id);
         await this._screenshot('abierta');
 
+        // Clic con el foco: minimiza. Otro clic: restaura y enfoca.
+        const minimized = () => app.get_windows().filter(w => w.minimized).length;
+        item.emit('clicked', 1);
+        await this._waitFor(() => minimized() === app.get_n_windows(), 3000);
+        console.log(`PROBE minimizar ${id} minimizadas=${minimized()}/${app.get_n_windows()}`);
+        item.emit('clicked', 1);
+        await this._waitFor(() => minimized() === 0 &&
+            Shell.WindowTracker.get_default().focus_app === app, 3000);
+        console.log(`PROBE restaurar ${id} minimizadas=${minimized()} ` +
+            `foco=${Shell.WindowTracker.get_default().focus_app === app}`);
+
         // Fuera de favoritas debe pasar a la sección de abiertas.
         const favorites = AppFavorites.getAppFavorites();
         favorites.removeFavorite(id);
         await wait(500);
         this._reportItem('no-favorita', id);
         await this._screenshot('no-favorita');
+
+        // Arrastrarla al principio de las favoritas la vuelve a fijar.
+        const view = this._dockView();
+        const first = this._dockItems()
+            .find(i => i.get_parent().name === 'bahiaDockFavorites');
+        const running = this._dockItems().find(i => i.app === app);
+        if (view && first && running) {
+            const motion = view.handleDragOver(running, null, 0, this._favoriteY(first, -first.height / 4));
+            const accepted = view.acceptDrop(running);
+            await wait(800);
+            const pos = favorites.getFavorites().indexOf(app);
+            console.log(`PROBE fijar ${id} motion=${motion} aceptado=${accepted} pos=${pos} esperado=0`);
+            this._reportItem('fijada', id);
+            favorites.removeFavorite(id);
+            await wait(500);
+        }
 
         // Al cerrarla debe desaparecer del dock.
         for (const win of app.get_windows())
