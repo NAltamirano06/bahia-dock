@@ -40,7 +40,7 @@ Después de los ciclos activa la extensión auxiliar `tools/test-probe/` (no se 
 - abre el Editor de texto, lo maximiza y comprueba que empieza a la derecha del dock;
 - simula un clic en un icono y comprueba que la aplicación se abre;
 - guarda capturas del escritorio, la ventana maximizada y la vista general;
-- recorre lo añadido en cada fase (menús, arrastre, magnificación, visibilidad, el fondo bajo el dock al abrir la vista general y cada ajuste de la Fase 5, incluido mover el dock al segundo monitor).
+- recorre lo añadido en cada fase (menús, arrastre, magnificación, visibilidad y cada ajuste de la Fase 5, incluido mover el dock al segundo monitor).
 
 Después ejecuta `tools/prefs-check.js`, que construye las páginas de preferencias dentro de esa sesión, cambia controles y comprueba que las claves cambian (y al revés).
 
@@ -97,7 +97,7 @@ Antes de dar una fase por terminada, en la sesión anidada:
 10. Cambiar entre modo claro y oscuro desde el menú del sistema (desde la Fase 4).
 11. Pasar el puntero por el dock de arriba abajo: la magnificación debe ser fluida y no mover las ventanas.
 12. Probar los tres modos de visibilidad, con una ventana maximizada, desde las preferencias y desde el menú de configuración (clic derecho en el botón de la cuadrícula o en una zona vacía del dock).
-13. Entrar en la vista general con Super: la franja del dock no debe verse cortada (desde la Fase 5).
+13. Entrar en la vista general con Super. Problema conocido: la franja del dock pasa a gris de golpe al empezar la animación.
 14. Recorrer las tres páginas de preferencias y comprobar que cada cambio se aplica al instante; con varios monitores, mover el dock y desconectar la pantalla.
 
 ## Empaquetado

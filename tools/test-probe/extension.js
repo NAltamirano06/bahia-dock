@@ -16,9 +16,7 @@
  *   6. Comprueba el modo claro, la magnificación (sin cambiar el
  *      espacio reservado), los modos de visibilidad y el menú de
  *      configuración (Fase 4).
- *   7. Comprueba que la franja del dock muestra el fondo de pantalla al
- *      abrir la vista general, y los ajustes de la Fase 5: tamaño de
- *      iconos, opacidad, margen, apps abiertas, botón de aplicaciones,
+ *   7. Comprueba los ajustes de la Fase 5: tamaño de iconos, opacidad, margen, apps abiertas, botón de aplicaciones,
  *      espera de ocultado y monitor.
  *
  * Todas las líneas que escribe empiezan por "PROBE ".
@@ -35,7 +33,6 @@ import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 Gio._promisify(Shell.Screenshot.prototype, 'screenshot');
-Gio._promisify(Shell.Screenshot.prototype, 'pick_color');
 
 const wait = ms => new Promise(resolve => {
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
@@ -63,7 +60,6 @@ export default class ProbeExtension extends Extension {
         await wait(1500);
         this._report('inicio');
         await this._screenshot('escritorio');
-        await this._checkOverviewBackdrop();
 
         for (const win of global.display.list_all_windows()) {
             if (win.get_window_type() !== Meta.WindowType.NORMAL)
@@ -98,53 +94,6 @@ export default class ProbeExtension extends Extension {
         await this._checkSettingsMenu();
         await this._checkPreferences();
         console.log('PROBE fin');
-    }
-
-    /** Color de un píxel del escenario como "r,g,b". */
-    async _pick(x, y) {
-        const [color] = await new Shell.Screenshot().pick_color(x, y);
-        return `${color.red},${color.green},${color.blue}`;
-    }
-
-    /**
-     * Franja del dock por encima de la píldora mientras se abre la vista
-     * general: debe verse el fondo de pantalla, no un corte.
-     */
-    async _checkOverviewBackdrop() {
-        const view = this._dockView();
-        if (!view) {
-            console.log('PROBE fondo sin dock');
-            return;
-        }
-        const [, viewY] = view.get_transformed_position();
-        const panel = Main.panel.height;
-        const x = 30;
-        const y = Math.round(panel + (viewY - panel) / 2);
-
-        const desk = await this._pick(x, y);
-        const samples = [];
-        Main.overview.show();
-        const start = GLib.get_monotonic_time();
-        for (const ms of [40, 100, 200]) {
-            const elapsed = (GLib.get_monotonic_time() - start) / 1000;
-            if (ms > elapsed)
-                await wait(ms - elapsed);
-            samples.push(`${ms}ms=${await this._pick(x, y)}`);
-        }
-        await wait(1500);
-        const overview = await this._pick(x, y);
-        Main.overview.hide();
-        await wait(1500);
-
-        // Captura a mitad de animación para verlo.
-        Main.overview.show();
-        await wait(60);
-        await this._screenshot('entrando-overview');
-        await wait(1500);
-        Main.overview.hide();
-        await wait(1500);
-
-        console.log(`PROBE fondo x=${x} y=${y} escritorio=${desk} ${samples.join(' ')} overview=${overview}`);
     }
 
     /** Ajustes de la Fase 5: cada cambio debe verse al momento. */

@@ -208,7 +208,25 @@ export class DockVisibility {
             opacity: 0,
             duration: this._animationTime,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            onComplete: () => this._clearGhost(),
         });
+    }
+
+    /**
+     * Repinta la pantalla al terminar de esconderse.
+     *
+     * Al llegar a opacidad 0 la píldora deja de pintarse, pero GNOME no
+     * siempre marca para repintar la zona donde estuvo (se vio con
+     * escala fraccional): quedaba en pantalla el penúltimo fotograma,
+     * un recuadro casi transparente del tamaño del dock, hasta que otra
+     * cosa repintaba esa zona. No se puede limitar al área del dock
+     * porque la sombra de la píldora sobresale de ella; es un solo
+     * repintado por cada vez que se esconde.
+     */
+    _clearGhost() {
+        if (this._shown || !this._view)
+            return;
+        global.stage.queue_redraw();
     }
 
     get _animationTime() {

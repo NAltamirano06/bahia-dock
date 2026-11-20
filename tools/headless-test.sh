@@ -12,9 +12,8 @@
 #      a la derecha del dock, que los indicadores, el foco y la
 #      sección de apps abiertas responden al abrir y cerrar una app, y
 #      que la etiqueta, el menú, el arrastre y minimizar funcionan, y
-#      el modo claro, la magnificación y los modos de visibilidad, el
-#      fondo bajo el dock al abrir la vista general, los ajustes de la
-#      Fase 5 (con dos monitores virtuales) y las páginas de
+#      el modo claro, la magnificación y los modos de visibilidad, los
+#      ajustes de la Fase 5 (con dos monitores virtuales) y las páginas de
 #      preferencias (tools/prefs-check.js).
 #
 # No toca la sesión real ni sus ajustes y no necesita mutter-devkit.
@@ -216,21 +215,6 @@ grep -q 'PROBE configuracion\[elegir\] clave=autohide abierto=false modo=autohid
 grep -q 'PROBE configuracion\[sincronizar\] modo=intellihide' "$LOG" ||
     fail "el menú de configuración no sigue los cambios hechos desde las preferencias"
 
-# Fondo bajo el dock al abrir la vista general: a los 40 ms la franja
-# debe parecerse al fondo de pantalla, no al gris de la vista general.
-BACKDROP="$(grep -oP 'PROBE fondo .*' "$LOG" || true)"
-if [[ -n "$BACKDROP" ]]; then
-    DESK="$(grep -oP 'escritorio=\K[0-9,]+' <<<"$BACKDROP")"
-    S40="$(grep -oP '40ms=\K[0-9,]+' <<<"$BACKDROP")"
-    OVW="$(grep -oP 'overview=\K[0-9,]+' <<<"$BACKDROP")"
-    awk -v d="$DESK" -v s="$S40" -v o="$OVW" 'BEGIN {
-        split(d, a, ","); split(s, b, ","); split(o, c, ",");
-        ds = 0; dn = 0;
-        for (i = 1; i <= 3; i++) { ds += (a[i]-b[i])^2; dn += (a[i]-c[i])^2 }
-        exit !(dn > 0 && sqrt(ds) < 0.35 * sqrt(dn)) }' ||
-        fail "al abrir la vista general la franja del dock se corta (escritorio=$DESK 40ms=$S40 vista=$OVW)"
-fi
-
 # Comprobaciones de la Fase 5
 grep -qP 'PROBE ajustes\[icono\] tamano=32 area=(\d+)->(?!\1)\d+' "$LOG" ||
     fail "el tamaño de iconos no se aplica o no cambia el ancho del dock"
@@ -265,5 +249,5 @@ if [[ -n "$SHOTS_DIR" ]]; then
     echo "Capturas y registro en $SHOTS_DIR"
 fi
 
-[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores; espacio reservado, indicadores, menú, etiqueta, arrastre, minimizar, tema, magnificación, visibilidad, menú de configuración, fondo de la vista general y preferencias correctos"
+[[ $FAIL -eq 0 ]] && echo "OK: $CYCLES ciclos sin errores; espacio reservado, indicadores, menú, etiqueta, arrastre, minimizar, tema, magnificación, visibilidad, menú de configuración y preferencias correctos"
 exit $FAIL

@@ -92,7 +92,6 @@ features/dock/
 ├── dockSettingsMenu.js ✓ Menú de configuración (visibilidad, magnificación, preferencias)
 ├── magnifier.js     ✓ Magnificación de iconos
 ├── dockVisibility.js ✓ Siempre visible, ocultado automático e intellihide
-├── overviewBackdrop.js ✓ Fondo de pantalla bajo el dock al abrir la vista general
 ├── nativeDash.js    ✓ Oculta y restaura el dash de la vista general
 ```
 
@@ -112,10 +111,10 @@ borde izquierdo
 
 ### Preferencias y monitores (Fase 5)
 
-- **Ajustes en caliente:** cada pieza escucha las claves que le afectan (`changed::`, conectadas con el `lifecycle`). `DockLayout` recoloca el área con `dock-monitor`, `dock-icon-size` y `dock-edge-margin` y emite `updated`; `DockVisibility`, `OverviewBackdrop` y `Magnifier` reaccionan a esa señal.
+- **Ajustes en caliente:** cada pieza escucha las claves que le afectan (`changed::`, conectadas con el `lifecycle`). `DockLayout` recoloca el área con `dock-monitor`, `dock-icon-size` y `dock-edge-margin` y emite `updated`; `DockVisibility` y `Magnifier` reaccionan a esa señal.
 - **Monitor:** `DockLayout.monitor` resuelve el conector guardado con `global.backend.get_monitor_manager().get_monitor_for_connector()` y vuelve al principal si no está conectado. La página de preferencias lista los monitores de GDK por su conector, que es el mismo nombre.
 - **Apariencia:** la opacidad se aplica con `set_style()` en la píldora (colores claro u oscuro según la variante) y el margen con `set_style()` en el área. Sin el botón de aplicaciones, `DockView` vuelve a crear el menú de configuración anclado a la píldora.
-- **Fondo en la vista general:** durante la animación GNOME dibuja el fondo del escritorio con `WorkspaceBackground`, recortado al área de trabajo, así que la franja reservada por el dock quedaba gris. `OverviewBackdrop` pone debajo del área un `Meta.BackgroundGroup` con el fondo del monitor, recortado a la franja, con opacidad `1 − estado` de `Main.overview._overview.controls._stateAdjustment`. Solo se ve con la vista general abierta y en modo siempre visible.
+- **Fondo en la vista general (problema abierto):** durante la animación GNOME dibuja el fondo con `WorkspaceBackground` (`ui/workspace.js`), que arranca con el tamaño del área de trabajo y no del monitor. Con el espacio reservado por el dock, su franja pasa a gris en el primer fotograma.
 
 ### Interacción (Fase 3)
 

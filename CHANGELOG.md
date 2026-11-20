@@ -1,5 +1,10 @@
 # Cambios
 
+## Sin publicar
+
+- Corregido: con ocultado automático o intellihide, al esconderse el dock podía quedar unos segundos un recuadro casi transparente del tamaño de la píldora (visto con escala fraccional). Ahora la pantalla se repinta al terminar de esconderse.
+- Retirado `overviewBackdrop.js`: la franja fija de fondo bajo el dock no corregía el corte al entrar en la vista general, solo lo cambiaba por un hueco gris entre la franja y el escritorio. El corte se debe a que GNOME empieza la animación con el área de trabajo, que excluye el espacio reservado por el dock; sigue pendiente de corregir.
+
 ## 0.6.0 — Fase 5: preferencias
 
 - Corregido: al entrar en la vista general, la franja del dock pasaba de golpe al gris de la vista general y se veía un corte justo en su borde. GNOME dibuja el fondo del escritorio solo dentro del área de trabajo durante la animación; ahora el dock pone el fondo de pantalla bajo su franja y lo desvanece al ritmo de la animación.

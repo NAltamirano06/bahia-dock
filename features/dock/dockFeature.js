@@ -9,8 +9,6 @@
  *   DockLayout  posición en pantalla y espacio reservado
  *   Magnifier   agranda los iconos al pasar el puntero
  *   DockVisibility  siempre visible, ocultado automático o intellihide
- *   OverviewBackdrop  fondo de pantalla bajo el dock al abrir la vista
- *               general, para que no se vea un corte en su borde
  *   NativeDash  oculta y restaura el dash de la vista general
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
@@ -23,7 +21,6 @@ import {DockView} from './dockView.js';
 import {DockVisibility} from './dockVisibility.js';
 import {Magnifier} from './magnifier.js';
 import {NativeDash} from './nativeDash.js';
-import {OverviewBackdrop} from './overviewBackdrop.js';
 
 export class DockFeature extends Feature {
     static id = 'dock';
@@ -39,7 +36,6 @@ export class DockFeature extends Feature {
         this._magnifier = new Magnifier(this._view, this.settings, this.lifecycle);
         this._visibility = new DockVisibility(this._layout, this._view,
             this.settings, this.lifecycle);
-        this._backdrop = new OverviewBackdrop(this._layout, this.lifecycle);
 
         // Las posiciones en reposo de la magnificación dejan de valer al
         // recolocar el dock o cambiar el tamaño de los iconos.
@@ -80,8 +76,6 @@ export class DockFeature extends Feature {
         this._nativeDash?.restore();
         this._nativeDash = null;
 
-        this._backdrop?.destroy();
-        this._backdrop = null;
         this._visibility?.destroy();
         this._visibility = null;
         this._magnifier?.destroy();

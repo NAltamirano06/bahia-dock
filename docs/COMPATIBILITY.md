@@ -47,8 +47,6 @@ APIs internas de GNOME Shell usadas por el dock:
 | `Meta.Window`: `minimize()`, `unminimize()`, `can_minimize()`, `located_on_workspace()`; `Main.activateWindow()` | `dockItem.js` | Bajo | 50.0 |
 | `PopupMenu.PopupMenu`, `PopupSwitchMenuItem`, `PopupSeparatorMenuItem`, `Ornament.DOT`/`NO_DOT`; `global.stage.get_event_actor()`; `Extension.openPreferences()` | `dockSettingsMenu.js`, `dockView.js`, `dockFeature.js` | Bajo | 50.0 |
 | `global.backend.get_monitor_manager()`: `get_monitor_for_connector()`, `get_monitors()` | `dockLayout.js` | Bajo (API GObject) | 50.0 |
-| `Background.BackgroundManager`, `Meta.BackgroundGroup` | `overviewBackdrop.js` | Medio: clase interna de `ui/background.js` | 50.0 |
-| `Main.overview._overview.controls._stateAdjustment` | `overviewBackdrop.js` | Alto: propiedad privada (la usa también Dash to Dock); si falta, el fondo se muestra sin desvanecerse | 50.0 |
 | `Main.getStyleVariant()`, `St.Settings` `notify::color-scheme` | `dockView.js` | Medio: `getStyleVariant` es interna de `ui/main.js` | 50.0 |
 | `St.Adjustment` con `actor` y `ease()` (añadido por `ui/environment.js`) | `magnifier.js` | Bajo | 50.0 |
 | `Main.layoutManager.removeChrome()` + `addChrome()` para cambiar `affectsStruts` | `dockLayout.js` | Medio: los struts se calculan con la posición transformada del actor (`layout.js` `_updateRegions`) | 50.0 |
